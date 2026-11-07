@@ -1,0 +1,12 @@
+# IDE and environment
+.idea/
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Generated outputs (regenerate with run.py)
+outputs/
