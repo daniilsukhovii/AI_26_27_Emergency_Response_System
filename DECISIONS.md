@@ -1,4 +1,6 @@
 ## D01 — Under-specified "return to base" mode (decision #2)
+Phase: pre-SPEC review of ASSUMPTIONS.md
+
 Context: my own extension of the plan: CLI flag to choose whether a responder
 stays on site or returns after a job.
 
@@ -10,7 +12,7 @@ LLM proposed: --after-job on-site|return; return = A* route to start_location;
 occupied until arrival; return trip not written to plan.json; validator derives
 position and free time with the same rule.
 
-Decision: accepted
+Decision: accepted  — allows you to answer the relevant question during the project defense by running the CLI; the definition is precise enough for testing.
 
 Cost/risk: extra logic in simulate.py and validate.py; first candidate to move
 to "future work" if time runs short.
