@@ -81,3 +81,30 @@ def write_scenario(directory: Path, nodes: list[dict], roads: list[dict], respon
 def copy_scenario(src: Path, dst: Path) -> Path:
     shutil.copytree(src, dst)
     return dst
+
+
+# ------------------------------------------------------------------ injected beliefs (no kernels)
+
+OPEN = {"Open": 1.0, "Congested": 0.0, "Blocked": 0.0}
+BLOCKED = {"Open": 0.0, "Congested": 0.0, "Blocked": 1.0}
+
+
+def hand_beliefs(s, cfg, status: dict | None = None, f_traffic: float = 1.0):
+    """Beliefs without the Bayes/HMM kernels: every road Open with f_traffic, except roads
+    listed in ``status`` ({road key: status distribution})."""
+    from erp.roadnet import make_belief
+    status = status or {}
+    return {k: make_belief(r, status.get(k, OPEN), k in status, None, f_traffic, cfg)
+            for k, r in s.roads.items()}
+
+
+def hand_network(s, cfg, status: dict | None = None, f_traffic: float = 1.0):
+    from erp.roadnet import build_network
+    return build_network(s, cfg, beliefs=hand_beliefs(s, cfg, status, f_traffic))
+
+
+def reference_router(net):
+    """RouteCache backed by the test-only Dijkstra instead of the student's A*."""
+    from erp.routing import RouteCache
+    from tests.reference import dijkstra_route
+    return RouteCache(net, dijkstra_route)
