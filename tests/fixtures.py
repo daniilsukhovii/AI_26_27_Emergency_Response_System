@@ -108,3 +108,78 @@ def reference_router(net):
     from erp.routing import RouteCache
     from tests.reference import dijkstra_route
     return RouteCache(net, dijkstra_route)
+
+
+# ------------------------------------------------------------------ allocation problems (no graph)
+
+def inc(id_: str, location: str, priority: str = "High", deadline: float = 100.0,
+        cap: str = "X", timestamp: float = 0.0, time_required: float = 0.0):
+    from erp.model import Incident
+    return Incident(id=id_, location=location, priority=priority, deadline=deadline,
+                    required_capability=cap, timestamp=timestamp, time_required=time_required)
+
+
+def snap(id_: str, position: str, caps=("X",), free_at: float = 0.0, start: str | None = None):
+    from erp.model import ResponderSnapshot
+    return ResponderSnapshot(id=id_, capabilities=frozenset(caps),
+                             start_location=start if start is not None else position,
+                             position=position, free_at=free_at)
+
+
+def matrix_travel(matrix: dict):
+    """travel(u, v) from an explicit matrix; 0 on the diagonal, inf where missing."""
+    import math
+
+    def travel(u, v):
+        if u == v:
+            return 0.0
+        return matrix.get((u, v), math.inf)
+    return travel
+
+
+def matrix_problem(incidents, responders, matrix: dict, now: float = 0.0, after_job="on-site"):
+    """AllocationProblem with an explicit travel matrix; domains computed as in build_problem."""
+    from erp.allocation import compute_domains
+    from erp.model import AllocationProblem, natural_key, order_key
+    incs = tuple(sorted(incidents, key=order_key))
+    resps = tuple(sorted(responders, key=lambda r: natural_key(r.id)))
+    travel = matrix_travel(matrix)
+    return AllocationProblem(now=now, incidents=incs, responders=resps,
+                             domains=compute_domains(now, incs, resps, travel),
+                             travel=travel, after_job=after_job)
+
+
+def t_c1_problem():
+    """SPEC T-C1: lexicographic objective instance."""
+    return matrix_problem(
+        [inc("I1", "P", "Critical", 10, time_required=10), inc("I2", "Q", "High", 25, time_required=10)],
+        [snap("R1", "X"), snap("R2", "Y")],
+        {("X", "P"): 5, ("X", "Q"): 1, ("Y", "P"): 20, ("Y", "Q"): 30, ("P", "Q"): 50, ("Q", "P"): 50})
+
+
+def random_problem(seed: int, n_incidents: int | None = None, n_responders: int | None = None):
+    """Seeded random instance: <= 6 incidents, <= 4 responders. Travel times are the shortest-path
+    closure of a random directed graph (metric, inf where unreachable), as RouteCache would give."""
+    import random
+    from tests.reference import floyd_warshall
+    rng = random.Random(seed)
+    nodes = [f"L{k}" for k in range(1, 7)]
+    edges = {(u, v): float(rng.randint(1, 30)) for u in nodes for v in nodes
+             if u != v and rng.random() < 0.45}
+    matrix = floyd_warshall(nodes, edges)
+    caps = ["a", "b", "c"]
+    n_i = n_incidents if n_incidents is not None else rng.randint(1, 6)
+    n_r = n_responders if n_responders is not None else rng.randint(1, 4)
+    now = float(rng.randint(0, 20))
+    responders = []
+    for k in range(1, n_r + 1):
+        rc = [c for c in caps if rng.random() < 0.6] or [rng.choice(caps)]
+        free_at = now if rng.random() < 0.6 else now + rng.randint(1, 30)
+        responders.append(snap(f"R{k}", rng.choice(nodes), rc, free_at, start=rng.choice(nodes)))
+    incidents = []
+    for k in range(1, n_i + 1):
+        ts = float(rng.randint(0, int(now)))
+        incidents.append(inc(f"I{k}", rng.choice(nodes), rng.choice(["Critical", "High", "Medium", "Low"]),
+                             ts + rng.randint(5, 70), rng.choice(caps), ts, float(rng.randint(0, 20))))
+    return matrix_problem(incidents, responders, matrix, now=now,
+                          after_job=rng.choice(["on-site", "return"]))
