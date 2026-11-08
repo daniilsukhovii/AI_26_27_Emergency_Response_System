@@ -49,3 +49,82 @@ Lesson: ASSUMPTIONS.md is executed "exactly" by the coding agent, so a
   documents that drive generation are written directly in English or
   translated as a whole and checked against a glossary of key terms (capable vs
   available, missed vs unhandled, road vs route, departure vs arrival).
+
+## D03 — Interface code in SPEC.md is a contract, not verified code
+Phase: review of SPEC.md (Prompt 1 output), before Prompt 2
+
+Observation: SPEC.md contains Python-like blocks (dataclasses, function
+  signatures, docstrings, pseudocode of the simulation loop). I first suspected
+  the agent had ignored "Do not write code yet".
+
+Analysis: done_when 1 of Prompt 1 explicitly asked for function signatures and
+  data structures, so the blocks are the requested interface contract. No
+  "# STUDENT:" function has a body in SPEC.md; pseudocode exists only for
+  infrastructure (simulate loop, §5.11).
+
+LLM review found: the blocks were never executed and are not valid as written.
+  Example: Config (§5.1) declares a dict default in a frozen dataclass, which
+  raises "ValueError: mutable default <class 'dict'> ... use default_factory"
+  when run.
+
+Change: none in SPEC.md; the snippets are treated as a contract for names,
+  types and units.
+
+Decision: accepted — the Python-like contract is acceptable.
+
+Lesson: generated specification code looks authoritative but is unverified;
+  only code that has been run counts as checked.
+
+## D04 — Inconsistent statistics.txt example in SPEC.md §2.2
+Phase: review of SPEC.md (Prompt 1 output), before Prompt 2
+
+LLM generated: the header block of the example was copied verbatim from the
+  assignment (5 handled, 2 responders, 65.7 s, Deadlines met 100.0%), while the
+  "Details" block describes a different, invented run (7 incidents, 4 met ->
+  57.1%, Critical 50.0%).
+
+Problem: by [D 10] the header line "Deadlines met" and "Deadlines met (all
+  incidents)" are the same value, so the example contradicted my own decision.
+  The agent could implement the header as a separate metric, or fit test T-ST5
+  to the copied numbers. A second inconsistency was found during the follow-up
+  check: "1 late" but "W401 x2" (W401 = missed deadline of a handled incident;
+  the two unhandled incidents produce W501 and W502, not W401).
+
+How found: my own review of SPEC.md (header 100.0% vs details 57.1%); the
+  W401 count was found by the LLM when checking my finding.
+
+Change: replaced the example in §2.2 with one consistent run (header 57.1%,
+  no value copied from the assignment example), added an explicit line that the
+  header value equals "Deadlines met (all incidents)", and corrected the
+  validation line to "3 warnings (W401 x1, W501 x1, W502 x1)".
+
+Decision: modified — saved with corrections.
+
+Lesson: illustrative examples in a spec act as requirements for the coding
+  agent; every number in an example must follow the spec's own formulas.
+
+## D05 — Traffic factor for roads without observations (SPEC OQ-2)
+Phase: review of SPEC.md (Prompt 1 output), before Prompt 2
+
+LLM generated: SPEC flagged that ASSUMPTIONS.md [D 8] covers only roads with
+  traffic observations, offered three options (initial / neutral /
+  stationary) and proposed `initial` as default.
+
+Why it matters: observations exist on 3 of 28 usable roads in S2 and 10 of 58
+  in S3, so this choice sets the traffic factor of most edges there (S1 is
+  unaffected: every road is observed).
+
+Options: initial = Σ π(L)·mult(L) (S1/S3 1.110, S2 1.145), consistent with
+  [D 6] (no evidence -> prior); neutral = 1.0 (ignore traffic where unknown);
+  stationary = long-run distribution (S1/S3 1.2071, S2 1.2288; more pessimistic).
+
+LLM review suggested: evaluate `neutral` in the sensitivity analysis.
+
+Change: accepted `initial` as default; SPEC §5.16 changed from a full grid to
+  one-factor-at-a-time variations from a baseline, with unobserved_traffic ∈
+  {neutral, stationary} added; new test T-SIM-7 (S1 must be unchanged).
+
+Decision: accepted — saved with improvements, due to an optimal choice and the addition of a new test coating.
+
+Report: limitation + sensitivity row; if results in S2/S3 change noticeably,
+  the conclusions depend on an unobserved quantity, and the report must say so.
