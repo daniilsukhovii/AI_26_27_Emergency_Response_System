@@ -5,7 +5,7 @@ Infra: ``expected_traffic_factor``, ``stationary_distribution``, ``compute_traff
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Mapping, Sequence
+from typing import TYPE_CHECKING, Mapping, Sequence, get_args, Any
 
 import numpy as np
 
@@ -15,12 +15,60 @@ if TYPE_CHECKING:
     from erp.config import Config
 
 
+def normalise_alphas(alpha: dict[Level, float]) -> dict[Level, float]:
+    total = sum(alpha.values())
+    if total <= 0:
+        raise ValueError("observation sequence has zero probability under the model")
+    return {s: p / total for s, p in alpha.items()}
+
 # STUDENT:
 def forward_filter(params: HMMParams, observations: Sequence[Level],
                    convention: str = "pi_is_t1") -> list[dict[Level, float]]:
     """Normalised forward messages α_1..α_T (§6.4). Returns one distribution per observation;
     the last one is the filtered state [D 8]. Raises ValueError on an empty sequence."""
-    raise NotImplementedError
+
+    if len(observations) == 0:
+        raise ValueError("observations must be non-empty")
+
+    levels = get_args(Level)
+
+    # Initial state distribution before the first observation
+    prior = {}
+    if convention == "pi_is_t1":
+        # pi is the distribution of X_1
+        for s in levels:
+            prior[s] = params.initial[s]
+
+    else:
+        # pi is the distribution of X_0, so we pass it through the transition once
+        for s in levels:
+            temp_sum = 0
+            for p in levels:
+                temp_sum += params.initial[p] * params.transition[p][s]
+            prior[s] = temp_sum
+
+    o1 = observations[0]
+
+
+    temp: dict[Level, float] = {}
+    for s in levels:
+        temp[s] = prior[s] * params.emission[s][o1]
+
+    alphas: list[dict[Level, float]] = [normalise_alphas(temp)]
+
+    for obs in observations[1:]:
+        prev = alphas[-1]
+
+        alpha : dict[Any, float] = {}
+        for s in levels:
+            sum_prev = 0
+            for p in levels:
+                sum_prev += prev[p] * params.transition[p][s]
+            alpha[s] = params.emission[s][obs] * sum_prev
+
+        alphas.append(normalise_alphas(alpha))
+
+    return alphas
 
 
 # infra:

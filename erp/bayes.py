@@ -5,7 +5,7 @@ Infra wrapper: ``compute_status_beliefs``.
 """
 from __future__ import annotations
 
-from typing import Sequence
+from typing import Sequence, get_args
 
 from erp.model import RoadCPTs, RoadKey, RoadReport, Scenario, Status, Weather
 
@@ -13,15 +13,32 @@ from erp.model import RoadCPTs, RoadKey, RoadReport, Scenario, Status, Weather
 # STUDENT:
 def road_status_prior(cpts: RoadCPTs) -> dict[Status, float]:
     """P(S) = Σ_w P(w)·P(S|w)  (§6.2). Used for roads without reports [D 6]."""
-    raise NotImplementedError
+    prior : dict[Status, float] = {}
+    for s in get_args(Status):
+        prior[s] = 0.0
+        for (weather, prior_weather) in cpts.weather_prior.items():
+            prior[s] += prior_weather * cpts.status_given_weather[weather][s]
+    return prior
 
 
 # STUDENT:
 def road_status_posterior(cpts: RoadCPTs, weather: Weather,
                           reports: Sequence[RoadReport]) -> dict[Status, float]:
-    """P(S | w, r_1..r_k) ∝ P(S|w)·Π_k P(r_k|S)  (§6.1). Normalised; order-invariant.
+    """P(S | w, r_1..r_k) = P(S|w)·Π_k P(r_k|S, source_k)  (§6.1). Normalised; order-invariant.
     With an empty report list it returns P(S|w)."""
-    raise NotImplementedError
+
+    posterior : dict[Status, float] = {}
+    for s in get_args(Status):
+        p = cpts.status_given_weather[weather][s]
+        for report in reports:
+            p *= cpts.report[report.source][s][report.reported_status]
+        posterior[s] = p
+
+    total = sum(posterior.values())
+    if total > 0:
+        for s in posterior:
+            posterior[s] /= total
+    return posterior
 
 
 # infra:

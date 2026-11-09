@@ -11,10 +11,10 @@ from __future__ import annotations
 
 from typing import Mapping, Sequence
 
-from erp.allocation import schedule_cost
+from erp.allocation import schedule_cost, simulate_schedule
 from erp.config import Config
 from erp.greedy import greedy_assignment
-from erp.model import AllocationProblem, AllocationResult, CostTuple, Planner
+from erp.model import AllocationProblem, AllocationResult, CostTuple, Planner, PRIORITY_ORDER
 
 __all__ = ["AllocationResult", "select_unassigned_variable", "forward_check", "solve_allocation",
            "csp_planner", "CSPPlanner"]
@@ -25,7 +25,32 @@ def select_unassigned_variable(p: AllocationProblem, domains: Mapping[str, Seque
                                assignment: Mapping[str, str]) -> str:
     """MRV: the unassigned variable (incident id) with the smallest current domain;
     ties broken by order_key (§5.9)."""
-    raise NotImplementedError
+
+    """Select by priority, then MRV, then order_key."""
+
+    r: tuple[int, float, str] = (0, float('inf'), "")
+
+    for v_incident_id, sequence in domains.items():
+        if v_incident_id in assignment:
+            continue
+
+        incident = next(
+            (i for i in p.incidents if i.id == v_incident_id),
+            None
+        )
+
+        if incident is None:
+            continue
+
+        v_size = len(sequence)
+        incident_p = PRIORITY_ORDER[incident.priority]
+
+        if incident_p > r[0] or (
+            incident_p == r[0] and v_size < r[1]
+        ):
+            r = (incident_p, v_size, v_incident_id)
+
+    return r[2]
 
 
 # STUDENT:
@@ -35,7 +60,42 @@ def forward_check(p: AllocationProblem, domains: Mapping[str, Sequence[str]],
     """Forward checking after an assignment (§5.9): for every unassigned variable remove the
     values that make simulate_schedule infeasible or whose schedule_cost(partial ∪ {Y: r}) is
     >= the incumbent cost (cost-based FC). Returns the reduced domains, None = wipe-out."""
-    raise NotImplementedError
+
+    new_domains: dict[str, tuple[str, ...]] = {}
+
+    for x, r in assignment.items():
+        new_domains[x] = (r,)
+
+    for inc in p.incidents:
+        inc_id = inc.id
+        if inc_id in assignment or inc_id not in domains:
+            continue
+
+        kept = []
+        for r in domains[inc_id]:
+            partial = dict(assignment) | {inc_id: r}
+
+            # 1) Validity check
+            sched = simulate_schedule(p, partial)
+            if sched is None:
+                continue
+
+            # 2) Cost-based FC: cut-off by incumbent
+            if incumbent is not None:
+                c: CostTuple = schedule_cost(p, partial)
+                if c is None:
+                    continue
+                if c >= incumbent:
+                    continue
+
+            kept.append(r)
+
+        if len(kept) == 0:
+            return None
+
+        new_domains[inc_id] = tuple(kept)
+
+    return new_domains
 
 
 # STUDENT:
@@ -43,7 +103,92 @@ def solve_allocation(p: AllocationProblem, node_limit: int,
                      incumbent: Mapping[str, str] | None = None) -> AllocationResult:
     """Backtracking + MRV + FC + B&B. Returns the lexicographically optimal complete assignment
     (or best found under node_limit). Variables with empty initial domain are left out."""
-    raise NotImplementedError
+
+    variables = [inc.id for inc in p.incidents if len(p.domains[inc.id]) != 0]
+    pos = {inc.id: i for i, inc in enumerate(p.incidents)}
+    domains0 = {Y: p.domains[Y] for Y in variables}
+
+    best_assignment: Mapping[str, str] = None
+    best_cost: CostTuple = None
+    nodes = 0
+    truncated = False # True = node_limit triggered
+
+    if incumbent is not None:
+        set_i = set(incumbent.keys())
+        set_v = set(variables)
+        if set_i.issubset(set_v) and set_v.issubset(set_i):
+            for Y, r in incumbent.items():
+                if r in domains0[Y]:
+                    if simulate_schedule(p, incumbent) is not None:
+                        best_assignment = incumbent.copy()
+                        best_cost = schedule_cost(p, incumbent)
+
+    root = forward_check(p, domains0, {}, best_cost)
+    if root is None:
+        # there is nothing better than the incumbent (or there is no complete solution at all)
+        return AllocationResult(
+            assignment      = best_assignment,
+            cost            = best_cost,
+            nodes_expanded  = nodes,
+            optimal         =True
+        )
+
+    def search(assignment, domains):
+        nonlocal nodes
+        nonlocal truncated
+        nonlocal variables
+        nonlocal best_cost
+        nonlocal best_assignment
+        if nodes >= node_limit:
+            truncated = True
+            return
+        nodes += 1
+
+        # Base case: all variables are assigned
+        if len(assignment) == len(variables):
+            c = schedule_cost(p, assignment)
+            if best_cost is None or c < best_cost:
+                best_cost = c
+                best_assignment = assignment.copy()
+            return
+
+        # MRV: unassigned variable with the smallest domain; ties ==> smaller pos
+        y = select_unassigned_variable(p, domains, assignment)
+
+        # Ordering of values: by increasing cost of the partial schedule,
+        # ties ==> by the ID of the person responsible (natural order)
+        scored = []
+        for r in domains[y]:
+            temp = dict(assignment) | {y: r}
+            c = schedule_cost(p, temp)
+            scored.append((c, r))
+        scored.sort()
+
+        for c, r in scored:
+
+            # Branch & Bound: `best_cost` could have improved during the loop
+            if best_cost is not None and c >= best_cost:
+                break
+
+            new_assignment = dict(assignment) | {y: r}
+
+            # Forward checking with a current bound
+            new_domains = forward_check(p, domains, new_assignment, best_cost)
+            if new_domains is None:
+                continue
+
+            search(new_assignment, new_domains)
+            if truncated:
+                return
+
+    search({}, root)
+
+    return AllocationResult(
+        assignment      = best_assignment,        # None / empty, if no solution is found
+        cost            = best_cost,
+        nodes_expanded  = nodes,
+        optimal         = not truncated           # Optimality is proven only if the search has concluded.
+    )
 
 
 # infra:
