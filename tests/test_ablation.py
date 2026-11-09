@@ -187,3 +187,40 @@ def test_sensitivity_has_ablation_variations():
     assert {"use_bayes": False, "use_hmm": False} in changes
     for _, _, change in VARIATIONS:
         replace(Config(), **change)          # every variation is a valid Config
+
+
+def _sensitivity_eval(tmp_path, d, **change):
+    from experiments.sensitivity import baseline_eval, baseline_network
+    import run
+    cfg = replace(Config(), **change)
+    r = run.run_scenario(d, tmp_path / "out", cfg)
+    return r, baseline_eval(r, cfg, baseline_network(d))
+
+
+@pytest.mark.parametrize("d", SCENARIO_DIRS, ids=lambda d: d.name)
+def test_sensitivity_baseline_row_same_in_both_column_groups(tmp_path, d):
+    from experiments.sensitivity import row
+    r, b = _sensitivity_eval(tmp_path, d)
+    assert b.error_counts == {} and not b.infeasible
+    self_st, base_st = r.statistics, b.statistics
+    assert base_st.avg_response_time == pytest.approx(self_st.avg_response_time, abs=1e-9)
+    assert base_st.pct_deadlines_met == pytest.approx(self_st.pct_deadlines_met, abs=1e-9)
+    assert (base_st.pct_critical_met is None) == (self_st.pct_critical_met is None)
+    if self_st.pct_critical_met is not None:
+        assert base_st.pct_critical_met == pytest.approx(self_st.pct_critical_met, abs=1e-9)
+    cells = [c.strip() for c in row(d.name, "csp", "baseline", "-", r, b).strip("|").split("|")]
+    assert cells[5:8] == cells[13:16] and cells[12] == "-"     # self == baseline columns
+
+
+def test_sensitivity_s1_no_bayes_infeasible_under_baseline(tmp_path):
+    from experiments.sensitivity import INFEASIBLE, row
+    r, b = _sensitivity_eval(tmp_path, SCENARIO_DIRS[0], use_bayes=False)
+    assert r.exit_code == 0                                      # self-evaluated: valid
+    assert b.error_counts.get("E304", 0) > 0 and b.infeasible
+    cells = [c.strip() for c in row("Scenario1", "csp", "use_bayes", "False", r, b).strip("|").split("|")]
+    assert "E304" in cells[12] and cells[13] == INFEASIBLE
+
+
+def test_sensitivity_return_plan_judged_in_return_mode(tmp_path):
+    r, b = _sensitivity_eval(tmp_path, SCENARIO_DIRS[0], after_job="return")
+    assert b.error_counts == {}                                  # not judged as on-site (E301)

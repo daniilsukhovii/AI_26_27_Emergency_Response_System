@@ -623,6 +623,7 @@ Writes `outputs/sensitivity.md`: one row per run with columns
 scenario, planner, varied factor, value, handled, avg response (s),
 % met, % Critical met, removed roads, roads with observed traffic / usable
 roads, CSP nodes, CSP optimal (yes/no).
+These columns are "self-evaluated" (the plan judged on the network it was planned on); each row additionally has "baseline-evaluated" columns — error codes with counts, avg response ("n/a (infeasible)" if a path uses a removed road), % met, % Critical met — from `validate_plan(scenario, baseline_network, Config(after_job = the run's after_job), plan)`, where `baseline_network` uses the default tau, multipliers, use_bayes and use_hmm.
 Sanity expectation: in S1 every road has traffic observations, so the
 unobserved_traffic variants must give results identical to the baseline.
 ---
