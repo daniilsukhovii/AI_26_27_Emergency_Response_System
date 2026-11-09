@@ -8,7 +8,7 @@ import math
 from queue import PriorityQueue
 from typing import Callable
 
-from erp.model import NodeId, Route
+from erp.model import NodeId, Route, natural_key
 from erp.roadnet import RoadNetwork
 
 
@@ -43,22 +43,22 @@ def astar(net: RoadNetwork, start: NodeId, goal: NodeId,
     Must terminate on every finite graph. Deterministic tie-break on equal f: smaller h, then
     natural node id (ENG; the student may change the rule but must keep it deterministic)."""
 
-
     if start == goal:
         return Route((start,), 0.0)
 
-    heuristic = h if h is not None else lambda _: 0.0
+    heuristic = h if h is not None else euclidean_heuristic(net, goal)
 
-    pq: PriorityQueue[tuple[float, float, NodeId, Route]] = PriorityQueue()
+    pq: PriorityQueue[tuple[float, float, tuple[str, int], Route]] = PriorityQueue()
     g_score = {start: 0.0}
 
     start_route = Route((start,), 0.0)
     start_h = heuristic(start)
 
-    pq.put((start_h, start_h, start, start_route))
+    pq.put((start_h, start_h, natural_key(start), start_route))
 
     while not pq.empty():
-        f_score, h_score, node_id, cr_route = pq.get()
+        f_score, h_score, _, cr_route = pq.get()
+        node_id = cr_route.path[-1]
 
         # already saw a cheaper way
         if cr_route.cost > g_score[node_id]:
@@ -68,7 +68,6 @@ def astar(net: RoadNetwork, start: NodeId, goal: NodeId,
             return cr_route
 
         for neighbour_node_id, edge_cost in net.neighbours(node_id):
-            #
             if not net.is_usable(node_id, neighbour_node_id):
                 continue
 
@@ -88,7 +87,7 @@ def astar(net: RoadNetwork, start: NodeId, goal: NodeId,
             pq.put((
                 priority,
                 neighbour_h,
-                neighbour_node_id,
+                natural_key(neighbour_node_id),
                 new_route
             ))
 

@@ -13,12 +13,6 @@ RoadKey = tuple[NodeId, NodeId]                     # (from, to), directed
 Status = Literal["Open", "Congested", "Blocked"]
 Level = Literal["Low", "Medium", "High"]
 Priority = Literal["Critical", "High", "Medium", "Low"]
-PRIORITY_ORDER: dict[Priority, int] = {
-    "Critical": 4,
-    "High": 3,
-    "Medium": 2,
-    "Low": 1,
-}
 
 Weather = Literal["Clear", "Rain", "Storm"]
 Source = Literal["Citizen", "Police", "Sensor"]
