@@ -34,10 +34,13 @@ This writes `plan.json` and `statistics.txt` to `outputs/<scenario dir name>/` (
 | `--hmm-init` | `pi_is_t1`, `pi_is_t0` | whether `initial` is P(X_1) or P(X_0) (OQ-1) |
 | `--csp-node-limit N` | `200000` | node budget of the CSP search per decision |
 | `--no-validate` | off | skip the plan validator checks (the timeline is still reconstructed for the statistics) |
+| `--no-bayes` | off | ablation: every road Open with P = 1 (e_mult = 1, no road removed); Bayesian inference is skipped (D06) |
+| `--no-hmm` | off | ablation: f_traffic = 1 for every road, observed or not; HMM filtering is skipped and `--unobserved-traffic` has no effect (D06) |
 
 Exit codes: `0` OK, `1` the plan has validation errors (files are still written), `2` input error.
 
-Sensitivity analysis (one factor at a time, SPEC §5.16), writes `outputs/sensitivity.md`:
+Sensitivity analysis (one factor at a time, SPEC §5.16, including the `use_bayes` / `use_hmm`
+ablations), writes `outputs/sensitivity.md`:
 
 ```bash
 python experiments/sensitivity.py

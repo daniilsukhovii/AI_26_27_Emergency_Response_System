@@ -4,7 +4,8 @@
 
 Baseline: tau = 0.5, after_job = on-site, unobserved_traffic = initial, default multipliers.
 For every scenario and planner in {csp, greedy}: the baseline, then tau in {0.3, 0.7},
-unobserved_traffic in {neutral, stationary}, after_job = return. Writes outputs/sensitivity.md.
+unobserved_traffic in {neutral, stationary}, after_job = return, and the ablations
+use_bayes = False, use_hmm = False and both False (D06). Writes outputs/sensitivity.md.
 """
 from __future__ import annotations
 
@@ -27,6 +28,9 @@ VARIATIONS: list[tuple[str, str, dict]] = [
     ("unobserved_traffic", "neutral", {"unobserved_traffic": "neutral"}),
     ("unobserved_traffic", "stationary", {"unobserved_traffic": "stationary"}),
     ("after_job", "return", {"after_job": "return"}),
+    ("use_bayes", "False", {"use_bayes": False}),               # ablation, D06
+    ("use_hmm", "False", {"use_hmm": False}),                   # ablation, D06
+    ("use_bayes+use_hmm", "False", {"use_bayes": False, "use_hmm": False}),
 ]
 
 HEADER = ("| scenario | planner | varied factor | value | handled | avg response (s) | % met | "
@@ -40,7 +44,8 @@ def _fmt(x: float | None) -> str:
 def row(scenario: str, planner: str, factor: str, value: str, r: RunResult) -> str:
     st, net, sim = r.statistics, r.network, r.simulation
     usable = net.usable_roads()
-    observed = sum(1 for k in usable if net.beliefs[k].traffic is not None)
+    # counted from the input, so the column does not drop to 0 under use_hmm = False
+    observed = sum(1 for k in usable if r.scenario.traffic_obs.get(k))
     csp_nodes = str(sim.csp_nodes_expanded) if planner == "csp" else "-"
     csp_opt = ("yes" if sim.csp_all_optimal else "no") if planner == "csp" else "-"
     return (f"| {scenario} | {planner} | {factor} | {value} | {st.n_handled}/{st.n_total} | "

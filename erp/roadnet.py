@@ -41,9 +41,23 @@ def make_belief(road: Road, status: Mapping[Status, float], has_reports: bool,
                       e_mult=e_mult, removed=removed, weight=weight)
 
 
+#: Status distribution used for every road when ``cfg.use_bayes`` is False (ablation, D06).
+ABLATION_STATUS: Mapping[Status, float] = {"Open": 1.0, "Congested": 0.0, "Blocked": 0.0}
+
+
+def ablated_status_beliefs(s: Scenario) -> dict[RoadKey, tuple[dict[Status, float], bool]]:
+    """``use_bayes = False``: every road Open with P = 1, so e_mult = 1 and no road is removed
+    (0 < tau). No Bayesian kernel is called; ``has_reports`` still tells whether the road has
+    reports in the input."""
+    return {key: (dict(ABLATION_STATUS), bool(s.reports.get(key))) for key in s.roads}
+
+
 def compute_road_beliefs(s: Scenario, cfg: Config) -> dict[RoadKey, RoadBelief]:
-    """Bayes posterior/prior (§6.1-6.2) + HMM traffic factor (§6.4-6.5) for every graph road."""
-    status = compute_status_beliefs(s)
+    """Bayes posterior/prior (§6.1-6.2) + HMM traffic factor (§6.4-6.5) for every graph road.
+
+    Ablation switches (SPEC §5.1): ``cfg.use_bayes = False`` replaces the status beliefs by
+    ``ABLATION_STATUS``; ``cfg.use_hmm = False`` gives f_traffic = 1 (see compute_traffic_factors)."""
+    status = compute_status_beliefs(s) if cfg.use_bayes else ablated_status_beliefs(s)
     traffic = compute_traffic_factors(s, cfg)
     out: dict[RoadKey, RoadBelief] = {}
     for key, road in s.roads.items():

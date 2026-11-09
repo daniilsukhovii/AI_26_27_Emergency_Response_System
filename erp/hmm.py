@@ -103,7 +103,12 @@ def unobserved_traffic_factor(params: HMMParams, cfg: "Config") -> float:
 def compute_traffic_factors(s: Scenario, cfg: "Config"
                             ) -> dict[RoadKey, tuple[dict[Level, float] | None, float]]:
     """Per graph road: (filtered distribution or None, f_traffic). Roads without observations get
-    f_traffic according to cfg.unobserved_traffic (OQ-2)."""
+    f_traffic according to cfg.unobserved_traffic (OQ-2).
+
+    Ablation ``cfg.use_hmm = False`` (SPEC §5.1, D06): (None, 1.0) for every road, observed or
+    not; forward_filter is not called and cfg.unobserved_traffic has no effect."""
+    if not cfg.use_hmm:
+        return {key: (None, 1.0) for key in s.roads}
     out: dict[RoadKey, tuple[dict[Level, float] | None, float]] = {}
     unobserved: float | None = None
     for key in s.roads:

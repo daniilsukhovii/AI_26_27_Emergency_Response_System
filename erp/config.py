@@ -31,6 +31,8 @@ class Config:
     csp_node_limit: int = 200_000                      # ENG, anytime B&B guard
     hmm_init_convention: Literal["pi_is_t1", "pi_is_t0"] = "pi_is_t1"  # OQ-1
     validate: bool = True
+    use_bayes: bool = True   # False: every road Open with P = 1 (e_mult = 1, nothing removed); ablation
+    use_hmm: bool = True     # False: f_traffic = 1 for every road; ablation
 
     def __post_init__(self) -> None:
         if not 0.0 < self.tau <= 1.0:
@@ -62,7 +64,8 @@ class Config:
         return (f"planner={self.planner}, tau={self.tau:g}, after_job={self.after_job}, "
                 f"congested_multiplier={self.congested_multiplier:g}, traffic_multipliers={mult}, "
                 f"unobserved_traffic={self.unobserved_traffic}, hmm_init={self.hmm_init_convention}, "
-                f"csp_node_limit={self.csp_node_limit}, validate={'yes' if self.validate else 'no'}")
+                f"csp_node_limit={self.csp_node_limit}, validate={'yes' if self.validate else 'no'}, "
+                f"use_bayes={'yes' if self.use_bayes else 'no'}, use_hmm={'yes' if self.use_hmm else 'no'}")
 
 
 def parse_traffic_multipliers(text: str) -> dict[Level, float]:
@@ -96,6 +99,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--hmm-init", choices=HMM_CONVENTIONS, default="pi_is_t1")
     p.add_argument("--csp-node-limit", type=int, default=200_000, metavar="N")
     p.add_argument("--no-validate", action="store_true")
+    p.add_argument("--no-bayes", action="store_true",
+                   help="ablation: every road Open with P = 1 (no Bayesian road-status inference)")
+    p.add_argument("--no-hmm", action="store_true",
+                   help="ablation: f_traffic = 1 for every road (no HMM traffic filtering)")
     return p
 
 
@@ -118,6 +125,8 @@ def config_from_args(argv: list[str] | None = None) -> tuple[Path, Path, Config]
             csp_node_limit=ns.csp_node_limit,
             hmm_init_convention=ns.hmm_init,
             validate=not ns.no_validate,
+            use_bayes=not ns.no_bayes,
+            use_hmm=not ns.no_hmm,
         )
     except ValueError as exc:
         parser.error(str(exc))
