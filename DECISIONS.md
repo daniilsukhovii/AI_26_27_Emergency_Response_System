@@ -152,7 +152,7 @@ Change: (1) applied: Prompt 2 now refers to SPEC.md, SPEC wins on conflicts,
   created as a stub for a later independent session.
   (2) deferred: SPEC.md was not changed before Prompt 2, so the scaffold has no
   --no-bayes/--no-hmm (confirmed in the repository after Prompt 2). The SPEC
-  change and its implementation are scheduled right before Prompt 3.
+  change and its implementation are scheduled right before Prompt 3 (implemented in commit c9b6d0ac). 
 
 Decision: (1) accepted; (2) accepted, deferred — the deviation from the original scenario in Prompt 2 was already a significant change, so it was decided to break it down into several steps.
 
@@ -192,3 +192,21 @@ Change: (1) MRV restored: (domain size, order_key);
   (3) fixed; (4) texts corrected.
 
 Decision: accepted
+
+## D09 — Ablation runs evaluated themselves with their own simplified model
+Phase: review after Prompt 3 (validator)
+Problem: experiments judged every plan with the network it was planned on.
+  Plans made without Bayes looked best (S1 --no-bayes: 100% deadlines met) —
+  because that network assumes every road is Open.
+How found: LLM review: re-validated the ablation plans with the baseline network
+  (Bayes + HMM): S1/S3 --no-bayes 4 x E304 (routes over roads with
+  P(Blocked) >= tau) plus E404; S2/S3 --no-hmm 2-5 x E404 (travel times
+  underestimated, jobs overlap). Baseline plans: 0 errors in both views. The
+  agent's own limitation list pointed at the cause: the validator cannot tell
+  which network a plan was made with.
+Change: sensitivity.py reports self-evaluated and baseline-evaluated columns
+  (commit dc223aef); SPEC §5.16 updated.
+Decision: accepted.
+Report: ablation shows that both components change the decisions; the
+  baseline-evaluated view is still an expectation, not ground truth (L1); Monte
+  Carlo evaluation (plan D1) is the next step.
