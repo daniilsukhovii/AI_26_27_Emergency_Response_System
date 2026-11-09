@@ -24,7 +24,8 @@ def road_status_prior(cpts: RoadCPTs) -> dict[Status, float]:
 # STUDENT:
 def road_status_posterior(cpts: RoadCPTs, weather: Weather,
                           reports: Sequence[RoadReport]) -> dict[Status, float]:
-    """P(S | w, r_1..r_k) = P(S|w)·Π_k P(r_k|S, source_k)  (§6.1). Normalised; order-invariant.
+    """P(S | w, r_1..r_k) ∝ P(S|w)·Π_k P(r_k|S, source_k)  (§6.1).
+    Normalised by Z = Σ_S' P(S'|w)·Π_k P(r_k|S', source_k); order-invariant.
     With an empty report list it returns P(S|w)."""
 
     posterior : dict[Status, float] = {}

@@ -128,3 +128,67 @@ Decision: accepted — saved with improvements, due to an optimal choice and the
 
 Report: limitation + sensitivity row; if results in S2/S3 change noticeably,
   the conclusions depend on an unobserved quantity, and the report must say so.
+
+## D06 — Prompt 2 rewritten to match SPEC.md; ablation flags deferred
+Phase: before Prompt 2
+
+Problem: Prompt 2 was drafted in the plan before SPEC.md existed. It named
+  kernel functions that SPEC defines differently (e.g. hmm.forward vs
+  forward_filter, csp.solve vs three functions), cited wrong SPEC sections
+  (§3 for signatures, §6 for tests), listed CLI flags that conflict with SPEC
+  §5.15 (--allocator vs --planner, --seed), and said "do not write the
+  validator" although SPEC derives statistics from the validator timeline and
+  uses the validator's Dijkstra in tests.
+
+How found: LLM review of Prompt 2 against SPEC.md.
+
+LLM proposed: (1) rewrite Prompt 2 to reference SPEC.md instead of repeating
+  its lists; (2) add use_bayes/use_hmm (--no-bayes, --no-hmm) and test T-W8 to
+  SPEC.md, because the ablation in the experiments needs them and the existing
+  flags cannot express "no Bayes".
+
+Change: (1) applied: Prompt 2 now refers to SPEC.md, SPEC wins on conflicts,
+  reference implementations for tests go to tests/reference.py, validate.py is
+  created as a stub for a later independent session.
+  (2) deferred: SPEC.md was not changed before Prompt 2, so the scaffold has no
+  --no-bayes/--no-hmm (confirmed in the repository after Prompt 2). The SPEC
+  change and its implementation are scheduled right before Prompt 3.
+
+Decision: (1) accepted; (2) accepted, deferred — the deviation from the original scenario in Prompt 2 was already a significant change, so it was decided to break it down into several steps.
+
+Lesson: a prompt drafted before the spec must be re-checked against it; a prompt
+  should reference the spec rather than restate it.
+
+## D07 — A* ran without its heuristic in production
+Phase: review after the student kernels (before Prompt 3)
+
+Problem: astar treats h=None as h=0; RouteCache (production path) calls
+  astar(net, u, v) without h, so every route was computed by uniform-cost
+  search. euclidean_heuristic was only called by tests. All tests passed,
+  because A* with h=0 is still optimal (T-A7 compares costs only).
+
+How found: LLM code review: euclidean_heuristic has no caller in erp/.
+  Measured on S3 all pairs: 8450 node expansions with h=0 vs 7795 with h.
+
+Change: astar defaults to euclidean_heuristic(net, goal) when h is None
+
+Decision: accepted — a “lambda _: 0.0” from the IDE's autocomplete passed the tests, which is, of course, an unintentional mistake by the student.
+
+## D08 — CSP kernel deviations from SPEC §5.9
+Phase: review after the student kernels (before Prompt 3)
+
+Found: (1) select_unassigned_variable orders by priority first, domain size
+  second, i.e. not MRV as specified (T-C3 passed only because its fixture has
+  equal priorities); (2) values are ordered by partial schedule cost instead of
+  domain order; (3) the incumbent was accepted if any (not all) of its values
+  were in the domains; (4) docstrings/comments contradicted the code (two
+  docstrings in select_unassigned_variable, "natural order" vs string order;
+  "=" instead of "∝" in bayes.py).
+
+How found: LLM code review against SPEC §5.9 and the docstrings.
+
+Change: (1) MRV restored: (domain size, order_key);
+  (2) restored;
+  (3) fixed; (4) texts corrected.
+
+Decision: accepted

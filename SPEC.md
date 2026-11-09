@@ -322,6 +322,8 @@ class Config:
     csp_node_limit: int = 200_000                      # ENG, anytime B&B guard
     hmm_init_convention: Literal["pi_is_t1", "pi_is_t0"] = "pi_is_t1"  # OQ-1
     validate: bool = True
+    use_bayes: bool = True   # False: every road Open with P = 1 (e_mult = 1, nothing removed); ablation
+    use_hmm: bool = True     # False: f_traffic = 1 for every road; ablation
 
 def config_from_args(argv: list[str] | None = None) -> tuple[Path, Path, Config]: ...
 ```
@@ -603,6 +605,7 @@ python run.py --scenario Scenarios/Scenario1 [--out DIR] [--planner csp|greedy]
               [--traffic-mult Low=1.0,Medium=1.2,High=1.5]
               [--unobserved-traffic initial|neutral|stationary]
               [--hmm-init pi_is_t1|pi_is_t0] [--csp-node-limit N] [--no-validate]
+              [--no-bayes] [--no-hmm]
 ```
 Exit codes: 0 = OK, 1 = plan has validation errors (files are still written), 2 = input error.
 
@@ -615,6 +618,8 @@ one factor at a time, keeping the others at baseline:
   * tau ∈ {0.3, 0.7}                                  [D 5]
   * unobserved_traffic ∈ {neutral, stationary}        OQ-2
   * after_job = return                                [D 2]
+  * use_bayes = False
+  * use_hmm = False
 Writes `outputs/sensitivity.md`: one row per run with columns
 scenario, planner, varied factor, value, handled, avg response (s),
 % met, % Critical met, removed roads, roads with observed traffic / usable
@@ -820,6 +825,7 @@ Tolerances: probabilities `abs=1e-4` unless more digits are given (then `1e-6`);
 | T-W5 | N1→N2 | removed, weight ∞, absent from `neighbours("N1")` |
 | T-W6 | every usable road of S1/S2/S3 | `w ≥ distance/speed` and `w ≥ euclid/v_max` |
 | T-W7 | `traffic_multipliers` with a value < 1 | `ValueError` |
+| T-W8 | --no-bayes / --no-hmm | all e_mult = 1 and no removed roads / all f_traffic = 1 |
 
 ### 8.4 A* (`tests/test_search.py`, S1, τ = 0.5, `on-site`)
 

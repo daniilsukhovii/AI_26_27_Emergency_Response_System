@@ -9,12 +9,12 @@ Infra: ``csp_planner``.
 """
 from __future__ import annotations
 
-from typing import Mapping, Sequence
+from typing import Mapping, Sequence, Any
 
 from erp.allocation import schedule_cost, simulate_schedule
 from erp.config import Config
 from erp.greedy import greedy_assignment
-from erp.model import AllocationProblem, AllocationResult, CostTuple, Planner, PRIORITY_ORDER
+from erp.model import AllocationProblem, AllocationResult, CostTuple, Planner, priority_rank, order_key
 
 __all__ = ["AllocationResult", "select_unassigned_variable", "forward_check", "solve_allocation",
            "csp_planner", "CSPPlanner"]
@@ -26,9 +26,7 @@ def select_unassigned_variable(p: AllocationProblem, domains: Mapping[str, Seque
     """MRV: the unassigned variable (incident id) with the smallest current domain;
     ties broken by order_key (§5.9)."""
 
-    """Select by priority, then MRV, then order_key."""
-
-    r: tuple[int, float, str] = (0, float('inf'), "")
+    key: tuple[float, tuple[Any, ...], str] = (float('inf'), (), "")
 
     for v_incident_id, sequence in domains.items():
         if v_incident_id in assignment:
@@ -43,14 +41,14 @@ def select_unassigned_variable(p: AllocationProblem, domains: Mapping[str, Seque
             continue
 
         v_size = len(sequence)
-        incident_p = PRIORITY_ORDER[incident.priority]
+        order_key_i = order_key(incident)
 
-        if incident_p > r[0] or (
-            incident_p == r[0] and v_size < r[1]
+        if v_size < key[0] or (
+            v_size == key[0] and key[1] > order_key_i
         ):
-            r = (incident_p, v_size, v_incident_id)
+            key = (v_size, order_key_i, v_incident_id)
 
-    return r[2]
+    return key[2]
 
 
 # STUDENT:
@@ -114,14 +112,10 @@ def solve_allocation(p: AllocationProblem, node_limit: int,
     truncated = False # True = node_limit triggered
 
     if incumbent is not None:
-        set_i = set(incumbent.keys())
-        set_v = set(variables)
-        if set_i.issubset(set_v) and set_v.issubset(set_i):
-            for Y, r in incumbent.items():
-                if r in domains0[Y]:
-                    if simulate_schedule(p, incumbent) is not None:
-                        best_assignment = incumbent.copy()
-                        best_cost = schedule_cost(p, incumbent)
+        if all(r in domains0[Y] for Y, r in incumbent.items()):
+            if simulate_schedule(p, incumbent) is not None:
+                best_assignment = incumbent.copy()
+                best_cost = schedule_cost(p, incumbent)
 
     root = forward_check(p, domains0, {}, best_cost)
     if root is None:
@@ -156,7 +150,7 @@ def solve_allocation(p: AllocationProblem, node_limit: int,
         y = select_unassigned_variable(p, domains, assignment)
 
         # Ordering of values: by increasing cost of the partial schedule,
-        # ties ==> by the ID of the person responsible (natural order)
+        # ties ==> by the ID of the person responsible (line comparison)
         scored = []
         for r in domains[y]:
             temp = dict(assignment) | {y: r}
