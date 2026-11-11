@@ -188,7 +188,7 @@ Found: (1) select_unassigned_variable orders by priority first, domain size
 How found: LLM code review against SPEC §5.9 and the docstrings.
 
 Change: (1) MRV restored: (domain size, order_key);
-  (2) restored;
+  (2) kept: values ordered by partial schedule cost (enables the B&B break); SPEC §5.9 corrected in Prompt 5
   (3) fixed; (4) texts corrected.
 
 Decision: accepted
