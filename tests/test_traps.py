@@ -123,16 +123,28 @@ def test_T3_sequential_same_deadline_injected(tmp_path):
     assert second.path[0] == "B"
 
 
+# Hand-computed edge factor of the pipeline fixtures (S1 tables, no reports, no observations):
+# prior P(S) = Σ_w P(w)·P(S|w) = (Open 0.685, Congested 0.18, Blocked 0.135) -> not removed (τ 0.5),
+# E[mult | not Blocked] = (0.685 + 0.18·1.5) / (0.685 + 0.18) = 0.955 / 0.865 (§6.3);
+# f_traffic (unobserved, "initial") = 0.6·1.0 + 0.3·1.2 + 0.1·1.5 = 1.11 (§6.5).
+# w = distance / speed · K, so a 100 m road at 10 m/s takes 10·K ≈ 12.2549 s.
+K_PRIOR = 0.955 / 0.865 * 1.11
+
+
 def test_T3_sequential_same_deadline_pipeline(tmp_path):
     res = pipeline(_t3_fixture(tmp_path), tmp_path)
     plan = plan_of(res)
     assert [(e["responder_id"], e["incident_id"]) for e in plan] == [("R1", "I1"), ("R1", "I2")]
     assert plan[0]["time"] == 0
     assert "E404" not in codes(res)
-    i2 = next(p for p in res.statistics.per_incident if p.id == "I2")
-    assert (i2.status == "late") == (i2.arrive > 30 + 1e-9)
-    entry_i1 = next(p for p in res.statistics.per_incident if p.id == "I1")
-    assert plan[1]["time"] == pytest.approx(entry_i1.arrive + 10)
+    per = {p.id: p for p in res.statistics.per_incident}
+    # I1: A->B 10·K = 12.2549 s <= 30 (met); I2: departs at I1's finish 10·K + 10 = 22.2549 s,
+    # B->C 15·K = 18.3824 s, arrives at 25·K + 10 = 40.6373 s > 30 (late)
+    assert per["I1"].arrive == pytest.approx(10 * K_PRIOR, abs=1e-9) and per["I1"].status == "met"
+    assert plan[1]["time"] == pytest.approx(10 * K_PRIOR + 10, abs=1e-9)
+    assert per["I2"].arrive == pytest.approx(25 * K_PRIOR + 10, abs=1e-9)
+    assert per["I2"].arrive == pytest.approx(40.6373, abs=1e-4)
+    assert per["I2"].status == "late"
 
 
 # ------------------------------------------------------------------ T4
@@ -250,8 +262,11 @@ def test_T8_fractional_seconds_pipeline(tmp_path):
     assert plan[0]["time"] == 12.5 and isinstance(plan[0]["time"], float)
     p = res.statistics.per_incident[0]
     assert p.deadline == 70.25 and p.depart == 12.5
-    assert p.response == pytest.approx(p.arrive - 12.5, abs=1e-12)
-    assert (p.status == "met") == (p.arrive <= 70.25 + 1e-9)
+    # departs at the timestamp 12.5 (R1 free at 3.5), A->B 10·K = 12.2549 s (K_PRIOR above)
+    assert p.arrive == pytest.approx(12.5 + 10 * K_PRIOR, abs=1e-9)
+    assert p.arrive == pytest.approx(24.7549, abs=1e-4)
+    assert p.response == pytest.approx(10 * K_PRIOR, abs=1e-9)
+    assert p.status == "met"                                   # 24.7549 <= 70.25
 
 
 # ------------------------------------------------------------------ T9
