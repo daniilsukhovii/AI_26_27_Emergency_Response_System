@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Sequence, get_args
 
+from erp.io_load import InputError
 from erp.model import RoadCPTs, RoadKey, RoadReport, Scenario, Status, Weather
 
 
@@ -51,14 +52,22 @@ def road_status_posterior(cpts: RoadCPTs, weather: Weather,
 # infra:
 def compute_status_beliefs(s: Scenario) -> dict[RoadKey, tuple[dict[Status, float], bool]]:
     """For every graph road: posterior if it has reports (weather taken from its reports),
-    else the prior. Returns (distribution, has_reports)."""
+    else the prior. Returns (distribution, has_reports).
+
+    Raises InputError I013 if a road's reports have probability 0 under every status (the
+    kernel's ValueError, Z = 0): the input is inconsistent, not the plan (SPEC §1.3)."""
     out: dict[RoadKey, tuple[dict[Status, float], bool]] = {}
     prior: dict[Status, float] | None = None
     for key in s.roads:
         reports = s.reports.get(key, ())
         if reports:
             weather = reports[0].weather          # uniform per road, checked by I007
-            out[key] = (dict(road_status_posterior(s.cpts, weather, reports)), True)
+            try:
+                posterior = road_status_posterior(s.cpts, weather, reports)
+            except ValueError as exc:
+                raise InputError("I013", f"reports for road {key[0]}->{key[1]} have zero probability "
+                                         f"under the model ({exc})") from exc
+            out[key] = (dict(posterior), True)
         else:
             if prior is None:
                 prior = dict(road_status_prior(s.cpts))

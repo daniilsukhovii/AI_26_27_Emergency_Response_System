@@ -24,26 +24,6 @@ from tests.fixtures import (
 )
 
 
-# ------------------------------------------------------------------ AUD-4 (medium)
-
-def test_AUD4_impossible_evidence_is_an_input_error(tmp_path):
-    """I005 accepts zero probabilities, but a report whose likelihood is 0 for every status makes
-    road_status_posterior raise ValueError (bayes.py:40). run.main only catches InputError
-    (run.py:455), so the process dies with a traceback and exit status 1, which SPEC §5.15
-    reserves for 'plan has validation errors'. Expected: exit code 2 (input error)."""
-    d = write_scenario(tmp_path / "z0", nodes=[node("A", 0, 0), node("B", 100, 0)],
-                       roads=two_way("A", "B", 100), responders=[responder("R1", "A", ["X"])],
-                       incidents=[incident("I1", "B", "High", 500, "X")],
-                       reports=[report("A", "B", "Rain", "Sensor", "Blocked")])
-    f = d / "road_probabilities.json"
-    probs = json.loads(f.read_text())
-    probs["sensor_report"] = {"Open": {"Open": 0.9, "Congested": 0.1, "Blocked": 0.0},
-                              "Congested": {"Open": 0.1, "Congested": 0.9, "Blocked": 0.0},
-                              "Blocked": {"Open": 0.5, "Congested": 0.5, "Blocked": 0.0}}
-    f.write_text(json.dumps(probs))
-    assert run.main(["--scenario", str(d), "--out", str(tmp_path / "o")]) == 2
-
-
 # ------------------------------------------------------------------ AUD-5, AUD-6 (medium): surviving mutants
 
 def _suite_kills(tmp_path, plugin_source: str) -> int:

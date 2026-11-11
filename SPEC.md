@@ -79,6 +79,7 @@ Note: `traffic_probabilities.json` of Scenario2 differs from Scenario1/3 (`initi
 | I010 | warning | Euclidean distance between road endpoints > `distance` (A* heuristic may become inadmissible, §6.6). Not triggered by any scenario (max ratio 0.983) |
 | I011 | warning | `Available` with `time_until_available > 0`, or `Busy` with `0` |
 | I012 | warning | a report / observation refers to a road not in the graph (ignored). Not triggered by any scenario |
+| I013 | error | evidence has probability 0 under the model (allowed by I005, which accepts zero entries): a road's reports have likelihood 0 for every status (posterior normaliser Z = 0, §6.1), or a road's traffic observation sequence has probability 0 under the HMM (§6.4). Raised by the infrastructure wrappers `compute_status_beliefs` / `compute_traffic_factors` when the kernel raises `ValueError`, i.e. while building the network, not in `load_scenario`; `run.py` exits with status 2. Not triggered by any scenario |
 
 ---
 

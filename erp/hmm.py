@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Mapping, Sequence, get_args, Any
 
 import numpy as np
 
+from erp.io_load import InputError
 from erp.model import LEVELS, HMMParams, Level, RoadKey, Scenario
 
 if TYPE_CHECKING:
@@ -112,7 +113,10 @@ def compute_traffic_factors(s: Scenario, cfg: "Config"
     f_traffic according to cfg.unobserved_traffic (OQ-2).
 
     Ablation ``cfg.use_hmm = False`` (SPEC §5.1, D06): (None, 1.0) for every road, observed or
-    not; forward_filter is not called and cfg.unobserved_traffic has no effect."""
+    not; forward_filter is not called and cfg.unobserved_traffic has no effect.
+
+    Raises InputError I013 if a road's observation sequence has probability 0 under the HMM
+    (the kernel's ValueError): the input is inconsistent, not the plan (SPEC §1.3)."""
     if not cfg.use_hmm:
         return {key: (None, 1.0) for key in s.roads}
     out: dict[RoadKey, tuple[dict[Level, float] | None, float]] = {}
@@ -120,7 +124,11 @@ def compute_traffic_factors(s: Scenario, cfg: "Config"
     for key in s.roads:
         obs = s.traffic_obs.get(key, ())
         if obs:
-            alphas = forward_filter(s.hmm, obs, cfg.hmm_init_convention)
+            try:
+                alphas = forward_filter(s.hmm, obs, cfg.hmm_init_convention)
+            except ValueError as exc:
+                raise InputError("I013", f"traffic observations of road {key[0]}->{key[1]} have zero "
+                                         f"probability under the HMM ({exc})") from exc
             dist = dict(alphas[-1])
             out[key] = (dist, expected_traffic_factor(dist, cfg.traffic_multipliers))
         else:
