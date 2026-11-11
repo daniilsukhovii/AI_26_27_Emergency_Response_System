@@ -10,6 +10,9 @@ use_bayes = False, use_hmm = False and both False (D06). Writes outputs/sensitiv
 Every plan is judged twice: "self" = the network it was planned on (validation inside
 run_scenario), "baseline" = validate_plan on the baseline network (default tau, multipliers,
 use_bayes, use_hmm) with the run's after_job, so ablation plans are judged by the full model.
+A plan with any error-severity issue under the baseline model (e.g. E304 removed road, E404
+overlapping jobs) is infeasible there: its error codes are listed with counts and its baseline
+avg response, % met and % Critical met are shown as "n/a (infeasible)".
 """
 from __future__ import annotations
 
@@ -54,7 +57,7 @@ class BaselineEval:
     """A run's plan judged by the baseline network (SPEC §5.16)."""
     error_counts: dict[str, int]      # error code -> count
     statistics: Statistics
-    infeasible: bool                  # some path uses a removed road (E304)
+    infeasible: bool                  # any error-severity issue under the baseline model
 
     def errors_text(self) -> str:
         return ", ".join(f"{c} x{n}" for c, n in sorted(self.error_counts.items())) or "-"
@@ -72,15 +75,21 @@ def baseline_eval(r: RunResult, cfg: Config, base_net: RoadNetwork) -> BaselineE
     _, timeline, issues = validate_plan(r.scenario, base_net, cfg_eval, load_plan_json(r.plan_path))
     counts = Counter(i.code for i in issues if i.severity == "error")
     st = compute_statistics(r.scenario, timeline, r.simulation.unhandled)
-    return BaselineEval(dict(counts), st, counts.get("E304", 0) > 0)
+    return BaselineEval(dict(counts), st, bool(counts))
 
 
 def _fmt(x: float | None) -> str:
     return "n/a" if x is None else f"{x:.1f}"
 
 
+def _baseline_cell(b: BaselineEval, x: float | None) -> str:
+    """A baseline-evaluated metric; not computed from the timeline of an infeasible plan."""
+    return INFEASIBLE if b.infeasible else _fmt(x)
+
+
 def row(scenario: str, planner: str, factor: str, value: str, r: RunResult, b: BaselineEval) -> str:
     st, net, sim = r.statistics, r.network, r.simulation
+    bst = b.statistics
     usable = net.usable_roads()
     # counted from the input, so the column does not drop to 0 under use_hmm = False
     observed = sum(1 for k in usable if r.scenario.traffic_obs.get(k))
@@ -90,8 +99,8 @@ def row(scenario: str, planner: str, factor: str, value: str, r: RunResult, b: B
             f"{_fmt(st.avg_response_time)} | {_fmt(st.pct_deadlines_met)} | "
             f"{_fmt(st.pct_critical_met)} | {len(net.removed_roads())} | {observed} / {len(usable)} | "
             f"{csp_nodes} | {csp_opt} | {b.errors_text()} | "
-            f"{INFEASIBLE if b.infeasible else _fmt(b.statistics.avg_response_time)} | "
-            f"{_fmt(b.statistics.pct_deadlines_met)} | {_fmt(b.statistics.pct_critical_met)} |")
+            f"{_baseline_cell(b, bst.avg_response_time)} | {_baseline_cell(b, bst.pct_deadlines_met)} | "
+            f"{_baseline_cell(b, bst.pct_critical_met)} |")
 
 
 def main(argv: list[str] | None = None) -> int:

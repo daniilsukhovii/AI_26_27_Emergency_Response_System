@@ -24,24 +24,6 @@ from tests.fixtures import (
 )
 
 
-# ------------------------------------------------------------------ AUD-1 (high)
-
-def test_AUD1_baseline_eval_does_not_score_overlapping_timeline(tmp_path):
-    """SPEC §5.16 / D09: the baseline-evaluated columns judge an ablation plan by the full model.
-    S3 csp use_hmm=False has E404 (jobs overlap) under the baseline network, yet the row still
-    reports a numeric baseline avg response (1397.4 s, *better* than the baseline plan's
-    1430.5 s), computed from departure times at which the responder is still busy.
-    Expected: such a row is flagged like the E304 case (n/a (infeasible))."""
-    from experiments.sensitivity import INFEASIBLE, baseline_eval, baseline_network, row
-    d = SCENARIO_DIRS[2]
-    cfg = Config(use_hmm=False)
-    r = run.run_scenario(d, tmp_path / "out", cfg)
-    b = baseline_eval(r, cfg, baseline_network(d))
-    assert b.error_counts.get("E404", 0) > 0                       # precondition: plan overlaps
-    cells = [c.strip() for c in row(d.name, "csp", "use_hmm", "False", r, b).strip("|").split("|")]
-    assert cells[13] == INFEASIBLE, f"avg response [baseline] reported as {cells[13]} despite E404"
-
-
 # ------------------------------------------------------------------ AUD-2 (high)
 
 def test_AUD2_csp_value_order_is_domain_order():

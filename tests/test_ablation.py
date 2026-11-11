@@ -221,6 +221,21 @@ def test_sensitivity_s1_no_bayes_infeasible_under_baseline(tmp_path):
     assert "E304" in cells[12] and cells[13] == INFEASIBLE
 
 
+def test_AUD1_baseline_eval_does_not_score_overlapping_timeline(tmp_path):
+    """AUD-1 (SPEC §5.16 / D09): a plan with ANY baseline error is infeasible there, not only E304.
+    S3 csp use_hmm=False has E404 (jobs overlap) under the baseline network; its baseline avg
+    response used to be reported as a number (1397.4 s, *better* than the baseline plan's
+    1430.5 s), computed from departure times at which the responder is still busy.
+    Expected: the error codes are listed and all three baseline metrics read n/a (infeasible)."""
+    from experiments.sensitivity import INFEASIBLE, row
+    r, b = _sensitivity_eval(tmp_path, SCENARIO_DIRS[2], use_hmm=False)
+    assert b.error_counts.get("E404", 0) > 0                       # precondition: plan overlaps
+    assert "E304" not in b.error_counts and b.infeasible
+    cells = [c.strip() for c in row(SCENARIO_DIRS[2].name, "csp", "use_hmm", "False", r, b).strip("|").split("|")]
+    assert "E404" in cells[12]
+    assert cells[13:16] == [INFEASIBLE] * 3, f"baseline metrics reported as {cells[13:16]} despite E404"
+
+
 def test_sensitivity_return_plan_judged_in_return_mode(tmp_path):
     r, b = _sensitivity_eval(tmp_path, SCENARIO_DIRS[0], after_job="return")
     assert b.error_counts == {}                                  # not judged as on-site (E301)
