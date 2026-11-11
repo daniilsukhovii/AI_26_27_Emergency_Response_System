@@ -236,12 +236,11 @@ Change: AUD-7 and DOC-a fixed by me, D08 corrected (95f7a1e). Accepted and fixed
   by Prompt 5: AUD-1 (acbe882), AUD-3 (33202b9), AUD-4 (4b32904), AUD-5/6
   (18592ec), AUD-7 test kept (6caced1), AUD-8 (88e19d6), DOC-b..d (c312ae2),
   TST-a (4c3750c), TST-b/c (772465f), TST-d (fda1885), OQ-1 pi·A for
-  pi_is_t0 (b66c69f); results/ snapshot (82d7e34). AUD-2 rejected for the code
-  (cost-ordered values keep the B&B break); SPEC §5.9 corrected instead
+  pi_is_t0 (b66c69f); results/ snapshot (82d7e34). AUD-2 not modified; SPEC §5.9 corrected instead
   (b47bd4b). Default S1-S3 statistics unchanged; in the sensitivity table every
   plan that is invalid under the baseline model now shows "n/a (infeasible)".
 
-Decision: accepted, AUD-2 modified — When the cheapest values are tried first, the first complete solution found is more likely to be close to the optimal one.
+Decision: accepted, AUD-2 not modified — When the cheapest values are tried first, the first complete solution found is more likely to be close to the optimal one.
 In this case, `best_cost` becomes small early on, and more branches are pruned from the tree—both in the loop and in `forward_check`, which also uses `best_cost`.
 With `domain order`, good solutions may be found later, the bound remains weak for longer, and the search explores more nodes.
 
