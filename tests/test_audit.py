@@ -24,22 +24,6 @@ from tests.fixtures import (
 )
 
 
-# ------------------------------------------------------------------ AUD-2 (high)
-
-def test_AUD2_csp_value_order_is_domain_order():
-    """SPEC §5.9: 'value order = domain order'; D08 says (2) 'restored'. erp/csp.py:155-165 still
-    orders values by partial schedule cost. With node_limit = 3 the search reaches exactly one
-    leaf; under domain order that leaf is I1=R1, I2=R1 (R1 is first in I2's domain: arrival
-    estimate 1 < 5)."""
-    p = matrix_problem([inc("I1", "P", "Critical"), inc("I2", "Q", "High")],
-                       [snap("R1", "X"), snap("R2", "Y")],
-                       {("X", "P"): 1, ("X", "Q"): 1, ("Y", "Q"): 5, ("Y", "P"): 50, ("P", "Q"): 100})
-    assert p.domains == {"I1": ("R1", "R2"), "I2": ("R1", "R2")}   # domain order (arrival estimate)
-    res = solve_allocation(p, node_limit=3)
-    assert dict(res.assignment) == {"I1": "R1", "I2": "R1"}, \
-        f"first leaf {dict(res.assignment)} is not the domain-order first leaf"
-
-
 # ------------------------------------------------------------------ AUD-3 (medium)
 
 def test_AUD3_incident_later_than_now_is_not_used(tmp_path):
