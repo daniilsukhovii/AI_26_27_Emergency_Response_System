@@ -152,27 +152,20 @@ def solve_allocation(p: AllocationProblem, node_limit: int,
         # MRV: unassigned variable with the smallest domain; ties ==> smaller pos
         y = select_unassigned_variable(p, domains, assignment)
 
-        # Ordering of values: by increasing cost of the partial schedule,
-        # ties ==> by the ID of the person responsible (line comparison)
-        scored: list[tuple[CostTuple, str]] = []
+        # Ordering of values: preserve the original domain order (SPEC §5.9)
         for responder in domains[y]:
+
             temp = dict(assignment) | {y: responder}
-            cost: CostTuple | None  = schedule_cost(p, temp)
+            cost: CostTuple | None = schedule_cost(p, temp)
+
             if cost is None:
                 continue
-            scored.append((cost, responder))
 
-        scored.sort(key=lambda item: (item[0], natural_key(item[1])))
+            # Branch & Bound: prune branches that cannot improve the incumbent
+            if best_cost is not None and cost >= best_cost:
+                continue
 
-
-
-        for c, r in scored:
-
-            # Branch & Bound: `best_cost` could have improved during the loop
-            if best_cost is not None and c >= best_cost:
-                break
-
-            new_assignment = dict(assignment) | {y: r}
+            new_assignment = dict(assignment) | {y: responder}
 
             # Forward checking with a current bound
             new_domains = forward_check(p, domains, new_assignment, best_cost)
