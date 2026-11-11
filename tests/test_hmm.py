@@ -182,3 +182,24 @@ def test_T_H9_compute_traffic_factors_unobserved_roads(scen, mode, f):
     dist, ft = factors[("H2", "N8")]
     _check(dist, (0.010113, 0.282220, 0.707666), P6)
     assert ft == pytest.approx(1.410277, abs=P6)
+
+
+@pytest.mark.parametrize("mode,conv,f", [
+    ("initial", "pi_is_t1", 1.145),          # π = (0.5, 0.35, 0.15)
+    # π·A = (0.5·0.75 + 0.35·0.15 + 0.15·0.03, 0.5·0.22 + 0.35·0.7 + 0.15·0.22,
+    #        0.5·0.03 + 0.35·0.15 + 0.15·0.75) = (0.432, 0.388, 0.18);
+    # f = 0.432·1.0 + 0.388·1.2 + 0.18·1.5 = 1.1676
+    ("initial", "pi_is_t0", 1.1676),
+    ("neutral", "pi_is_t0", 1.0),
+    ("stationary", "pi_is_t0", 1.2288),      # π∞ does not depend on the convention
+])
+def test_unobserved_roads_follow_hmm_init_convention(scen, mode, conv, f):
+    """Open question 1 of the audit: with pi_is_t0, π is P(X_0), so a road without observations
+    uses the distribution of X_1 = π·A (S2), consistent with forward_filter's first step."""
+    s = scen[2]
+    factors = compute_traffic_factors(s, Config(unobserved_traffic=mode, hmm_init_convention=conv))
+    unobserved = [k for k in s.roads if k not in s.traffic_obs]
+    assert unobserved
+    for key in unobserved:
+        dist, ft = factors[key]
+        assert dist is None and ft == pytest.approx(f, abs=1e-12 if mode != "stationary" else P4)

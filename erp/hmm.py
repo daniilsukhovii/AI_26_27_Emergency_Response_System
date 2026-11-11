@@ -95,11 +95,24 @@ def stationary_distribution(params: HMMParams) -> dict[Level, float]:
     return {lv: float(v[n]) for n, lv in enumerate(LEVELS)}
 
 
+def state_distribution_at_t1(params: HMMParams, convention: str) -> dict[Level, float]:
+    """Distribution of X_1 (the state at the first observation step) under the OQ-1 convention:
+    ``pi_is_t1``: π itself; ``pi_is_t0``: π is P(X_0), so P(X_1) = π·A."""
+    if convention == "pi_is_t1":
+        return {lv: float(params.initial[lv]) for lv in LEVELS}
+    if convention == "pi_is_t0":
+        return {j: float(sum(params.initial[i] * params.transition[i][j] for i in LEVELS)) for j in LEVELS}
+    raise ValueError(f"unknown hmm_init_convention {convention!r}")
+
+
 def unobserved_traffic_factor(params: HMMParams, cfg: "Config") -> float:
-    """f_traffic for a road without observations according to cfg.unobserved_traffic (OQ-2)."""
+    """f_traffic for a road without observations according to cfg.unobserved_traffic (OQ-2).
+    Mode "initial" uses the distribution of X_1, so it follows cfg.hmm_init_convention (OQ-1):
+    π for ``pi_is_t1``, π·A for ``pi_is_t0``."""
     mode = cfg.unobserved_traffic
     if mode == "initial":
-        return expected_traffic_factor(params.initial, cfg.traffic_multipliers)
+        return expected_traffic_factor(state_distribution_at_t1(params, cfg.hmm_init_convention),
+                                       cfg.traffic_multipliers)
     if mode == "neutral":
         return 1.0
     if mode == "stationary":
