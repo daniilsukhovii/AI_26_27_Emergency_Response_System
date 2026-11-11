@@ -89,8 +89,10 @@ def _issue(code: str, entry: int | None, message: str) -> Issue:
 
 
 def _initial_state(r: Responder) -> tuple[NodeId, float]:
-    """(position, free time in s) at t = 0 [D 2]: start_location, time_until_available if Busy."""
-    return r.start_location, r.free_at_start
+    """(position, free time in s) at t = 0 [D 2]: start_location, time_until_available if Busy.
+    Derived from the raw CSV fields, not from ``Responder.free_at_start`` (which the simulator
+    uses), so this rule is checked independently."""
+    return r.start_location, (0.0 if r.available else r.time_until_available)
 
 
 def _check_path(s: Scenario, net: RoadNetwork, k: int, a: Assignment,

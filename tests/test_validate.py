@@ -302,6 +302,25 @@ def test_E304_removed_road_N1_N2(s1):
     check(res, mutated(raw, k, path=["N1", "N2"]), "E304", entry=k)
 
 
+def test_initial_free_time_from_raw_fields(tmp_path, monkeypatch):
+    """TST-b: the validator derives a responder's initial free time from the raw fields
+    (availability, time_until_available), not from Responder.free_at_start, which the simulator
+    uses — so a wrong shared rule cannot hide in both. R1 is Busy for 10 s and departs at 10 for
+    an incident known at 0; with free_at_start broken to 0 the validator must still see R1 free
+    at 10 (no W402 'could depart at 0')."""
+    from erp.model import Responder
+    d = write_scenario(tmp_path / "busy", nodes=[node("A", 0, 0), node("B", 100, 0)],
+                       roads=two_way("A", "B", 100), responders=[responder("R1", "A", ["X"], busy_for=10)],
+                       incidents=[incident("I1", "B", "High", 500, "X", 0, 5)])
+    res, raw, cfg = make_run(d, tmp_path / "out")
+    assert raw[0]["time"] == 10
+    _, _, before = validate_plan(res.scenario, res.network, cfg, raw)
+    assert before == []
+    monkeypatch.setattr(Responder, "free_at_start", property(lambda self: 0.0))
+    _, _, after = validate_plan(res.scenario, res.network, cfg, raw)
+    assert after == before, [i.code for i in after]
+
+
 # ------------------------------------------------------------------ E4xx: feasibility
 
 def _reassign(res, raw, k, new_rid, cfg=None):
@@ -518,6 +537,7 @@ def test_reconstruct_timeline_standalone_equals_validate(tmp_path, after_job):
                              e.position_after) for e in v] for r, v in tl.items()}
     assert strip(tl_alone).keys() == strip(tl_val).keys()
     for r in tl_alone:
+        assert len(strip(tl_alone)[r]) == len(strip(tl_val)[r]), r
         for a, b in zip(strip(tl_alone)[r], strip(tl_val)[r]):
             assert a[0] == b[0] and a[5] == b[5] and a[1:5] == pytest.approx(b[1:5], abs=1e-9)
 
