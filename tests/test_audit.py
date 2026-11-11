@@ -24,51 +24,6 @@ from tests.fixtures import (
 )
 
 
-# ------------------------------------------------------------------ AUD-5, AUD-6 (medium): surviving mutants
-
-def _suite_kills(tmp_path, plugin_source: str) -> int:
-    """Run the existing suite (without this file) with a mutant patched in by a pytest plugin.
-    Returns pytest's exit code: 1 = some test failed (mutant killed), 0 = mutant survived."""
-    (tmp_path / "audit_mutant_plugin.py").write_text(textwrap.dedent(plugin_source))
-    env = dict(os.environ, PYTHONPATH=os.pathsep.join([str(tmp_path), str(REPO)]))
-    proc = subprocess.run(
-        [sys.executable, "-m", "pytest", "-q", "-x", "-p", "audit_mutant_plugin", "-p", "no:cacheprovider",
-         "tests", "--ignore=tests/test_audit.py"],
-        cwd=REPO, env=env, capture_output=True, text=True, timeout=600)
-    return proc.returncode
-
-
-def test_AUD5_suite_detects_astar_without_heuristic(tmp_path):
-    """D07 regression guard: the exact D07 bug (h=None treated as h=0 in the production path)
-    still passes every existing test, because T-A7 (tests/test_search.py:237-249) compares costs
-    only and no test checks that RouteCache/run.py search with the Euclidean heuristic."""
-    code = _suite_kills(tmp_path, """
-        import erp.search
-        _orig = erp.search.astar
-        def astar(net, start, goal, h=None):
-            return _orig(net, start, goal, h if h is not None else (lambda n: 0.0))
-        erp.search.astar = astar
-    """)
-    assert code == 1, "the D07 mutant (A* = uniform-cost search in production) survives the suite"
-
-
-def test_AUD6_suite_detects_priority_first_mrv(tmp_path):
-    """D08 (1) regression guard: the original 'priority first, then domain size' variable order
-    still passes every existing test (T-C3 fixtures, tests/test_csp.py:64-76, never combine a
-    higher priority with a larger domain)."""
-    code = _suite_kills(tmp_path, """
-        import erp.csp
-        from erp.model import order_key, priority_rank
-        def select_unassigned_variable(p, domains, assignment):
-            incs = {i.id: i for i in p.incidents}
-            cand = [v for v in domains if v not in assignment and v in incs]
-            return min(cand, key=lambda v: (priority_rank(incs[v].priority), len(domains[v]),
-                                            order_key(incs[v])))
-        erp.csp.select_unassigned_variable = select_unassigned_variable
-    """)
-    assert code == 1, "the D08(1) mutant (priority before MRV) survives the suite"
-
-
 # ------------------------------------------------------------------ AUD-7 (low)
 
 def test_AUD7_solve_allocation_returns_a_mapping():

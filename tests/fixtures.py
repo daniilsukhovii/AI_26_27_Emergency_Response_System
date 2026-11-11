@@ -6,7 +6,11 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import shutil
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -76,6 +80,25 @@ def write_scenario(directory: Path, nodes: list[dict], roads: list[dict], respon
     for f in ("road_probabilities.json", "traffic_probabilities.json"):
         shutil.copy(probs_from / f, directory / f)
     return directory
+
+
+# ------------------------------------------------------------------ mutation checks (AUD-5, AUD-6)
+
+MUTANT_RUN_ENV = "ERP_MUTANT_RUN"   # set inside a nested mutant run, so mutation checks skip themselves
+
+
+def suite_kills_mutant(tmp_path: Path, plugin_source: str) -> int:
+    """Run the whole test suite in a subprocess with a mutant patched in by a pytest plugin
+    (``plugin_source``, imported before collection). Returns pytest's exit code:
+    1 = some test failed (mutant killed), 0 = mutant survived. Tests that call this skip
+    themselves inside the nested run (``MUTANT_RUN_ENV``), so the run does not recurse."""
+    (tmp_path / "audit_mutant_plugin.py").write_text(textwrap.dedent(plugin_source))
+    env = dict(os.environ, PYTHONPATH=os.pathsep.join([str(tmp_path), str(REPO)]), **{MUTANT_RUN_ENV: "1"})
+    proc = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-x", "-p", "audit_mutant_plugin", "-p", "no:cacheprovider",
+         "tests"],
+        cwd=REPO, env=env, capture_output=True, text=True, timeout=600)
+    return proc.returncode
 
 
 def copy_scenario(src: Path, dst: Path) -> Path:

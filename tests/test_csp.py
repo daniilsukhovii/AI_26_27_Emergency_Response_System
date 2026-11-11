@@ -4,6 +4,7 @@ Calls STUDENT kernels of erp/csp.py except T-C8 (schedule_cost, infra).
 """
 from __future__ import annotations
 
+import os
 import random
 
 import pytest
@@ -13,7 +14,9 @@ from erp.config import Config
 from erp.csp import csp_planner, forward_check, select_unassigned_variable, solve_allocation
 from erp.greedy import greedy_assignment
 from erp.model import AllocationResult
-from tests.fixtures import inc, matrix_problem, random_problem, snap, t_c1_problem
+from tests.fixtures import (
+    MUTANT_RUN_ENV, inc, matrix_problem, random_problem, snap, suite_kills_mutant, t_c1_problem,
+)
 from tests.reference import exhaustive_allocation
 
 LIMIT = Config().csp_node_limit
@@ -74,6 +77,32 @@ def test_T_C3_mrv_ties_by_order_key():
     assert select_unassigned_variable(p, domains, {"I2": "R1"}) == "I1"  # assigned ones skipped
     p2 = _three_incident_problem()
     assert select_unassigned_variable(p2, domains, {}) == "I1"           # natural id last tie-break
+
+
+def test_T_C3_mrv_before_priority():
+    """AUD-6 / D08 (1): MRV is (domain size, order_key), not priority first. The Critical
+    incident has the largest domain, so the Low one with a single value is chosen first."""
+    p = _three_incident_problem(("Critical", "Low", "High"))
+    domains = {"I1": ("R1", "R2", "R3"), "I2": ("R1",), "I3": ("R1", "R2")}
+    assert select_unassigned_variable(p, domains, {}) == "I2"            # Low, domain size 1
+    assert select_unassigned_variable(p, domains, {"I2": "R1"}) == "I3"  # High, size 2 < Critical's 3
+
+
+@pytest.mark.skipif(bool(os.environ.get(MUTANT_RUN_ENV)), reason="inside a nested mutant run")
+def test_AUD6_suite_detects_priority_first_mrv(tmp_path):
+    """AUD-6, D08 (1) regression guard: the original 'priority first, then domain size' variable
+    order must be killed by the suite (by test_T_C3_mrv_before_priority)."""
+    code = suite_kills_mutant(tmp_path, """
+        import erp.csp
+        from erp.model import order_key, priority_rank
+        def select_unassigned_variable(p, domains, assignment):
+            incs = {i.id: i for i in p.incidents}
+            cand = [v for v in domains if v not in assignment and v in incs]
+            return min(cand, key=lambda v: (priority_rank(incs[v].priority), len(domains[v]),
+                                            order_key(incs[v])))
+        erp.csp.select_unassigned_variable = select_unassigned_variable
+    """)
+    assert code == 1, "the D08(1) mutant (priority before MRV) survives the suite"
 
 
 def test_T_C4_forward_check_wipe_out():

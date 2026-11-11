@@ -2,17 +2,21 @@
 from __future__ import annotations
 
 import math
+import os
 from itertools import product
 
 import pytest
 
+import erp.search
+import run
 from erp.config import Config
 from erp.io_load import load_scenario
 from erp.model import Route
 from erp.roadnet import build_network
 from erp.search import astar, euclidean_heuristic
 from tests.fixtures import (
-    BLOCKED, SCENARIO_DIRS, hand_network, incident, node, responder, road, two_way, write_scenario,
+    BLOCKED, MUTANT_RUN_ENV, SCENARIO_DIRS, hand_network, incident, node, responder, road,
+    suite_kills_mutant, two_way, write_scenario,
 )
 from tests.reference import dijkstra_costs, dijkstra_route
 
@@ -81,6 +85,56 @@ def test_T_A7_astar_equals_dijkstra(nets, k):
             assert got.path[0] == u and got.path[-1] == v
             assert got.cost == pytest.approx(ref.cost, abs=1e-9), (u, v)
             assert got.cost == pytest.approx(net.path_cost(got.path), abs=1e-9)
+
+
+def test_production_path_uses_euclidean_heuristic(tmp_path, monkeypatch):
+    """D07 / AUD-5 regression: run.py -> RouteCache -> astar must search with the Euclidean
+    heuristic. T-A7 compares costs only, so A* with h = 0 (uniform-cost search) passes it.
+    Spy on erp.search.euclidean_heuristic and record every pair the production RouteCache
+    searches: each searched goal must have had its heuristic built and evaluated."""
+    built: set[str] = set()
+    evaluations = 0
+    real = erp.search.euclidean_heuristic
+
+    def spy(net, goal):
+        built.add(goal)
+        h = real(net, goal)
+
+        def counted(n):
+            nonlocal evaluations
+            evaluations += 1
+            return h(n)
+        return counted
+
+    searched: set[tuple[str, str]] = set()
+
+    class RecordingCache(run.RouteCache):
+        def route(self, u, v):
+            if (u, v) not in self._cache:
+                searched.add((u, v))
+            return super().route(u, v)
+
+    monkeypatch.setattr(erp.search, "euclidean_heuristic", spy)
+    monkeypatch.setattr(run, "RouteCache", RecordingCache)
+    run.run_scenario(SCENARIO_DIRS[0], tmp_path / "out", Config())
+    goals = {v for u, v in searched if u != v}
+    assert goals, "precondition: the production run searched some routes"
+    assert goals <= built, f"routes searched without the Euclidean heuristic: goals {sorted(goals - built)}"
+    assert evaluations > 0
+
+
+@pytest.mark.skipif(bool(os.environ.get(MUTANT_RUN_ENV)), reason="inside a nested mutant run")
+def test_AUD5_suite_detects_astar_without_heuristic(tmp_path):
+    """AUD-5, D07 regression guard: the exact D07 bug (h=None treated as h=0 in the production
+    path) must be killed by the suite (by test_production_path_uses_euclidean_heuristic)."""
+    code = suite_kills_mutant(tmp_path, """
+        import erp.search
+        _orig = erp.search.astar
+        def astar(net, start, goal, h=None):
+            return _orig(net, start, goal, h if h is not None else (lambda n: 0.0))
+        erp.search.astar = astar
+    """)
+    assert code == 1, "the D07 mutant (A* = uniform-cost search in production) survives the suite"
 
 
 @pytest.mark.parametrize("k", [1, 2, 3])
