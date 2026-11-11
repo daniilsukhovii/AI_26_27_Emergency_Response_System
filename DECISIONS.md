@@ -188,25 +188,62 @@ Found: (1) select_unassigned_variable orders by priority first, domain size
 How found: LLM code review against SPEC §5.9 and the docstrings.
 
 Change: (1) MRV restored: (domain size, order_key);
-  (2) kept: values ordered by partial schedule cost (enables the B&B break); SPEC §5.9 corrected in Prompt 5
+  (2) kept: values ordered by partial schedule cost.
+Cheaper values first find a good incumbent earlier, so B&B prunes more.
+The sorted order also allows a break instead of continue, which by itself changes nothing.
   (3) fixed; (4) texts corrected.
 
 Decision: accepted
 
 ## D09 — Ablation runs evaluated themselves with their own simplified model
 Phase: review after Prompt 3 (validator)
+
 Problem: experiments judged every plan with the network it was planned on.
   Plans made without Bayes looked best (S1 --no-bayes: 100% deadlines met) —
   because that network assumes every road is Open.
+
 How found: LLM review: re-validated the ablation plans with the baseline network
   (Bayes + HMM): S1/S3 --no-bayes 4 x E304 (routes over roads with
   P(Blocked) >= tau) plus E404; S2/S3 --no-hmm 2-5 x E404 (travel times
   underestimated, jobs overlap). Baseline plans: 0 errors in both views. The
   agent's own limitation list pointed at the cause: the validator cannot tell
   which network a plan was made with.
+
 Change: sensitivity.py reports self-evaluated and baseline-evaluated columns
   (commit dc223aef); SPEC §5.16 updated.
+
 Decision: accepted.
+
 Report: ablation shows that both components change the decisions; the
   baseline-evaluated view is still an expectation, not ground truth (L1); Monte
   Carlo evaluation (plan D1) is the next step.
+
+## D10 — Independent audit session (Prompt 4) and fixes (Prompt 5)
+
+Phase: after experiments, before the report
+
+Found: 8 code/test defects (each with a failing test) + 9 doc/test-quality
+  defects (04_audit_answer.md). Most important: AUD-1 — the D09 fix was
+  incomplete: plans with E404 under the baseline model still got baseline
+  averages, so ablated plans could look better because their jobs overlapped;
+  AUD-2 — D08 claimed a change that git showed was never made; AUD-5/6 — the
+  D07 and D08 bugs would still pass the whole suite (no regression tests).
+
+How found: fresh Claude Code session without history (Prompt 4); claims checked
+  against git history and by running mutants.
+
+Change: AUD-7 and DOC-a fixed by me, D08 corrected (95f7a1e). Accepted and fixed
+  by Prompt 5: AUD-1 (acbe882), AUD-3 (33202b9), AUD-4 (4b32904), AUD-5/6
+  (18592ec), AUD-7 test kept (6caced1), AUD-8 (88e19d6), DOC-b..d (c312ae2),
+  TST-a (4c3750c), TST-b/c (772465f), TST-d (fda1885), OQ-1 pi·A for
+  pi_is_t0 (b66c69f); results/ snapshot (82d7e34). AUD-2 rejected for the code
+  (cost-ordered values keep the B&B break); SPEC §5.9 corrected instead
+  (b47bd4b). Default S1-S3 statistics unchanged; in the sensitivity table every
+  plan that is invalid under the baseline model now shows "n/a (infeasible)".
+
+Decision: accepted, AUD-2 modified — When the cheapest values are tried first, the first complete solution found is more likely to be close to the optimal one.
+In this case, `best_cost` becomes small early on, and more branches are pruned from the tree—both in the loop and in `forward_check`, which also uses `best_cost`.
+With `domain order`, good solutions may be found later, the bound remains weak for longer, and the search explores more nodes.
+
+Lesson: a fix is only finished when a test would catch the original bug; an
+  entry in the decision log is not evidence that the code changed.
