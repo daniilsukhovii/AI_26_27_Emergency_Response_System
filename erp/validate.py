@@ -186,7 +186,7 @@ def reconstruct_timeline(s: Scenario, net: RoadNetwork, cfg: Config,
             if inc.required_capability not in r.capabilities:
                 issues.append(_issue("E401", k, f"{rid} lacks capability {inc.required_capability!r} "
                                                 f"required by {inc.id}"))
-            if t < inc.timestamp - EPS:
+            if t < inc.timestamp:                                        # exact, no EPS [C]
                 issues.append(_issue("E402", k, f"departure {t:g} s before {inc.id} is known "
                                                 f"(timestamp {inc.timestamp:g} s)"))
             if first:

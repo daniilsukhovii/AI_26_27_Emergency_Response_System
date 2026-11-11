@@ -5,7 +5,11 @@ so they exercise infra only. Variants marked "kernels" use the production pipeli
 """
 from __future__ import annotations
 
+import json
+
 import pytest
+
+import run
 
 from erp.config import Config
 from erp.csp import csp_planner
@@ -142,3 +146,19 @@ def test_simulation_is_deterministic():
         net = hand_network(s, cfg)
         runs.append(simulate(s, net, cfg, greedy_planner(cfg), reference_router(net)))
     assert runs[0] == runs[1]
+
+
+def test_AUD3_incident_later_than_now_is_not_used(tmp_path):
+    """AUD-3, CLAUDE.md: never use incidents whose timestamp is later than the current simulation
+    time. An incident is known at t iff timestamp <= t, exactly (SPEC §0): at t = 10 (R1 becomes
+    free) an incident with timestamp 10 + 5e-10 is not yet known; it is planned and dispatched at
+    its own timestamp, and the plan has no E402."""
+    ts = 10.0000000005
+    d = write_scenario(tmp_path / "eps", nodes=[node("A", 0, 0), node("B", 100, 0)],
+                       roads=two_way("A", "B", 100), responders=[responder("R1", "A", ["X"], busy_for=10)],
+                       incidents=[incident("I1", "B", "High", 500, "X", ts, 5)])
+    res = run.run_scenario(d, tmp_path / "out", Config())
+    (entry,) = json.loads(res.plan_path.read_text())
+    assert entry["time"] >= ts, f"dispatched at {entry['time']} before the incident exists ({ts})"
+    assert res.simulation.unhandled == {}
+    assert "E402" not in {i.code for i in res.issues}

@@ -24,10 +24,10 @@ provisional and must be confirmed by the student).
 | Road states | static during the whole simulation; reports refer to t = 0 | [D add.] |
 | Python | ≥ 3.11; stdlib + numpy + pytest only | [C] |
 | Hard-coded values | no scenario-specific values (node ids, speeds, counts) in code; model parameters live in `Config` | [C] |
-| Future knowledge | no component may read an incident whose `timestamp` > current simulation time | [C], [A §3.2] |
+| Future knowledge | no component may read an incident whose `timestamp` > current simulation time. An incident is known at time t iff `timestamp ≤ t`, compared **exactly** (no EPS); the same exact comparison is used by E402 | [C], [A §3.2] |
 | Student functions | functions marked `# STUDENT:` are stubs only (signature, type hints, docstring, `raise NotImplementedError`). The coding agent never writes their bodies, even if tests fail, and never weakens tests | [C] |
 | Determinism | identical inputs + config ⇒ byte-identical outputs. All ties are broken by **natural id order** (`"I2" < "I10"`, key = `(alpha prefix, int suffix)`) | ENG, [T 3] |
-| Float comparisons | `a ≤ b` is evaluated as `a ≤ b + EPS` with `EPS = 1e-9` s (deadlines, availability) | ENG |
+| Float comparisons | `a ≤ b` is evaluated as `a ≤ b + EPS` with `EPS = 1e-9` s (deadlines, availability / `free_at`); never for incident timestamps (see Future knowledge) | ENG |
 
 Priority rank (used everywhere an order over priorities is needed):
 `rank(Critical)=0, rank(High)=1, rank(Medium)=2, rank(Low)=3`.
@@ -534,7 +534,7 @@ Algorithm (rolling horizon [D 3]):
 state[r] = ResponderState(r.id, r.start_location, free_at = r.time_until_available if Busy else 0)
 assigned = {}; t = 0
 loop:
-    known   = [i for i in incidents if i.timestamp <= t + EPS]           # never later ones [C]
+    known   = [i for i in incidents if i.timestamp <= t]                 # exact, no EPS: never later ones [C]
     pending = [i for i in known if i.id not in assigned]
     free    = [r for r in state if state[r].free_at <= t + EPS]
     if pending and free:
@@ -552,7 +552,7 @@ loop:
                 append Assignment(r, j, route.path, t); assigned[j] = r
         if a commit produced free_at <= t + EPS (zero-length job): repeat at the same t
            (bounded: each repetition commits ≥ 1 incident)
-    next_t = min({i.timestamp > t + EPS} ∪ {state[r].free_at > t + EPS})
+    next_t = min({i.timestamp > t} ∪ {state[r].free_at > t + EPS})      # timestamps exact, free_at with EPS
     if none: break
     t = next_t
 unhandled = remaining pending (+ incidents never known — impossible, all timestamps are finite);
@@ -753,7 +753,7 @@ Timeline reconstruction per responder r: `pos = start_location`, `free = time_un
 | E303 | consecutive path nodes (u, v) are not a road of the graph (direction matters) |
 | E304 | consecutive path nodes (u, v) use a removed road (P(Blocked) ≥ τ) [D 5] |
 | E401 | responder lacks the incident's required capability [A §3.1] |
-| E402 | `time < incident.timestamp − EPS` (dispatch before the incident is known) [A §3.2], [C] |
+| E402 | `time < incident.timestamp`, compared exactly (no EPS, §0) (dispatch before the incident is known) [A §3.2], [C] |
 | E403 | `time < time_until_available − EPS` for a responder that is Busy at t = 0 (first job) [D 1], [T 4] |
 | E404 | `time < free − EPS` where `free` is the end of the responder's previous job (+ return trip in return mode): overlapping jobs [D 1], [T 3], [T 9] |
 | E501 | an incident is absent from the plan although some capable responder can reach its location from its final position (end of its timeline) — contradicts [D 4] (unhandled only if no capable responder can reach it) |

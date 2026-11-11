@@ -51,7 +51,7 @@ def simulate(s: Scenario, net: RoadNetwork, cfg: Config,
     t = 0.0
 
     while True:
-        known = [i for i in s.incidents if i.timestamp <= t + EPS]          # never later ones [C]
+        known = [i for i in s.incidents if i.timestamp <= t]                # exact, no EPS: never later ones [C]
         pending = {i.id: i for i in known if i.id not in assigned}
         free = [rid for rid in state if state[rid].free_at <= t + EPS]
         repeat = False
@@ -98,7 +98,7 @@ def simulate(s: Scenario, net: RoadNetwork, cfg: Config,
                     repeat = True                                           # zero-length job
         if repeat and pending:
             continue                                                        # same t again
-        future = [i.timestamp for i in s.incidents if i.timestamp > t + EPS]
+        future = [i.timestamp for i in s.incidents if i.timestamp > t]      # exact, like `known`
         future += [st.free_at for st in state.values() if st.free_at > t + EPS]
         if not future:
             break

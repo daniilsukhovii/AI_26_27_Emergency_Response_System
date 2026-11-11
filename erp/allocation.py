@@ -45,7 +45,7 @@ def build_problem(now: float, pending: Sequence[Incident],
     """Snapshot of the current decision point. Every pending incident must already be known
     (timestamp <= now) — enforced by an assertion [C]."""
     for inc in pending:
-        assert inc.timestamp <= now + EPS, \
+        assert inc.timestamp <= now, \
             f"future knowledge: incident {inc.id} has timestamp {inc.timestamp} > now {now}"
     incidents = tuple(sorted(pending, key=order_key))
     responders = tuple(

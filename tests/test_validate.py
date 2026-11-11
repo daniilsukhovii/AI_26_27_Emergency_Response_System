@@ -346,6 +346,18 @@ def test_E402_departure_before_timestamp(tmp_path):
     check(res, mutated(raw, 0, time=10), "E402", entry=0)
 
 
+def test_E402_is_exact_no_eps_window(tmp_path):
+    """AUD-3: E402 compares exactly (SPEC §0): a departure 5e-10 s before the timestamp is
+    flagged, although it lies inside the EPS window used for deadlines and free_at."""
+    ts = 10.0000000005
+    d = write_scenario(tmp_path / "e402x", nodes=[node("A", 0, 0), node("B", 100, 0)],
+                       roads=two_way("A", "B", 100), responders=[responder("R1", "A", ["X"])],
+                       incidents=[incident("I1", "B", "High", 500, "X", ts, 5)])
+    res, raw, _ = make_run(d, tmp_path / "out")
+    assert raw[0]["time"] == ts
+    check(res, mutated(raw, 0, time=10.0), "E402", entry=0)
+
+
 def test_E403_busy_responder_R4_at_5(s1):
     res, raw, _ = s1
     k = min((k for k, e in enumerate(raw) if e["responder_id"] == "R4"), key=lambda k: raw[k]["time"])
