@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 import random
+from collections.abc import Mapping
 
 import pytest
 
@@ -181,6 +182,13 @@ def test_T_C8_cost_monotone_under_extension():
             assert all(a >= b for a, b in zip(c1[:3], c0[:3])), (seed, partial, y)
             assert c1[3] >= c0[3] - 1e-9, (seed, partial, y)
     assert checked > 500
+
+
+def test_AUD7_solve_allocation_returns_a_mapping():
+    """AUD-7, SPEC §5.9: AllocationResult.assignment is a Mapping, also when node_limit = 1 stops
+    the search before any leaf and there is no incumbent."""
+    res = solve_allocation(t_c1_problem(), node_limit=1)
+    assert isinstance(res.assignment, Mapping), f"assignment is {res.assignment!r}"
 
 
 def test_T_C9_determinism():
