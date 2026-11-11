@@ -1,0 +1,27 @@
+System statistics:
+
+ * 7 incidents handled
+ * 4 responders used
+ * Average response time: 107.4 s
+ * Deadlines met: 71.4%
+
+Details:
+ * The "Deadlines met" line above is the same value as "Deadlines met (all incidents)" below (§6.8, [D 10])
+ * Time unit: seconds (s) of simulation time; response time = arrival time - incident timestamp
+ * Incidents: 7 total, 7 handled (2 late), 0 unhandled
+ * Deadlines met (all incidents, unhandled = missed): 71.4% (5/7)
+ * Deadlines met (Critical): 100.0% (2/2)
+ * Missed deadlines: Critical 0, High 2, Medium/Low 0
+ * Configuration: planner=csp, tau=0.5, after_job=on-site, congested_multiplier=1.5, traffic_multipliers=Low=1,Medium=1.2,High=1.5, unobserved_traffic=initial, hmm_init=pi_is_t1, csp_node_limit=200000, validate=yes, use_bayes=yes, use_hmm=yes
+ * Roads removed (P(Blocked) >= tau): H1->N3 (0.998), N1->N2 (0.527), N2->N4 (0.527), N3->H1 (0.998)
+ * Validation: 0 errors, 2 warnings (W401 x2)
+
+Per incident:
+ id   priority  responder    depart   arrive  deadline  response  status
+ I1   High      R4             10.0     78.6      80.0      78.6  met
+ I2   Critical  R1              0.0     87.5      90.0      87.5  met
+ I3   High      R3              0.0    124.6     150.0     124.6  met
+ I4   Critical  R2              0.0     53.5      60.0      53.5  met
+ I5   High      R1            117.5    196.1     200.0     146.1  met
+ I6   High      R4             88.6    140.7     140.0      90.7  late
+ I7   High      R3            144.6    230.7     200.0     170.7  late

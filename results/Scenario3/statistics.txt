@@ -1,0 +1,40 @@
+System statistics:
+
+ * 20 incidents handled
+ * 8 responders used
+ * Average response time: 1430.5 s
+ * Deadlines met: 50.0%
+
+Details:
+ * The "Deadlines met" line above is the same value as "Deadlines met (all incidents)" below (§6.8, [D 10])
+ * Time unit: seconds (s) of simulation time; response time = arrival time - incident timestamp
+ * Incidents: 20 total, 20 handled (10 late), 0 unhandled
+ * Deadlines met (all incidents, unhandled = missed): 50.0% (10/20)
+ * Deadlines met (Critical): 50.0% (4/8)
+ * Missed deadlines: Critical 4, High 4, Medium/Low 2
+ * Configuration: planner=csp, tau=0.5, after_job=on-site, congested_multiplier=1.5, traffic_multipliers=Low=1,Medium=1.2,High=1.5, unobserved_traffic=initial, hmm_init=pi_is_t1, csp_node_limit=200000, validate=yes, use_bayes=yes, use_hmm=yes
+ * Roads removed (P(Blocked) >= tau): N5->N16 (0.527), N16->N5 (0.527)
+ * Validation: 0 errors, 10 warnings (W401 x10)
+
+Per incident:
+ id   priority  responder    depart   arrive  deadline  response  status
+ I1   Critical  R3              0.0    652.2     800.0     652.2  met
+ I2   High      R9              0.0    713.4     900.0     713.4  met
+ I3   Critical  R5              0.0   2207.1    1550.0    2207.1  late
+ I4   High      R1              0.0    655.9     600.0     655.9  late
+ I5   Critical  R8              0.0   1597.5    1350.0    1597.5  late
+ I6   High      R5           2242.1   3797.4    2500.0    3737.4  late
+ I7   High      R4            120.0   1073.3    1100.0     953.3  met
+ I8   Critical  R8           1642.5   2314.4    3000.0    1954.4  met
+ I9   Medium    R9            733.4   2101.7    2700.0    1501.7  met
+ I10  High      R7           1140.0   2737.5    2600.0    1597.5  late
+ I11  Critical  R1           1140.0   1140.0    1700.0       0.0  met
+ I12  Medium    R10          1500.0   1946.6    2800.0     446.6  met
+ I13  High      R7           2772.5   4850.0    5600.0    2100.0  met
+ I14  Critical  R1           3000.0   3827.4    3800.0     827.4  late
+ I15  Medium    R9           3250.0   5730.1    5200.0    2480.1  late
+ I16  High      R8           4200.0   5477.8    5100.0    1277.8  late
+ I17  Critical  R8           5507.8   6785.6    6000.0    2285.6  late
+ I18  High      R3           4600.0   4600.0    6500.0       0.0  met
+ I19  Medium    R10          5000.0   7800.2    7500.0    2800.2  late
+ I20  Critical  R1           5000.0   5822.1    6500.0     822.1  met

@@ -46,6 +46,19 @@ ablations), writes `outputs/sensitivity.md`:
 python experiments/sensitivity.py
 ```
 
+## Results
+
+`results/` (tracked by git) holds the reference outputs: `results/sensitivity.md` and
+`results/Scenario1..3/statistics.txt` (default settings). `outputs/` is git-ignored, so
+regenerate them there and copy them over:
+
+```bash
+for s in 1 2 3; do python run.py --scenario Scenarios/Scenario$s; done
+python experiments/sensitivity.py
+for s in 1 2 3; do mkdir -p results/Scenario$s && cp outputs/Scenario$s/statistics.txt results/Scenario$s/; done
+cp outputs/sensitivity.md results/
+```
+
 ## Test
 
 ```bash
