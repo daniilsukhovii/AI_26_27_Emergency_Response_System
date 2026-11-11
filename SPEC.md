@@ -436,7 +436,7 @@ class ResponderSnapshot:
 @dataclass(frozen=True)
 class AllocationProblem:
     now: float                                         # s
-    incidents: tuple[Incident, ...]                    # pending, all with timestamp <= now (asserted), sorted by order_key
+    incidents: tuple[Incident, ...]                    # pending, all with timestamp <= now (checked, ValueError), sorted by order_key
     responders: tuple[ResponderSnapshot, ...]          # natural id order
     domains: Mapping[str, tuple[str, ...]]             # incident id -> capable responder ids that can reach it
                                                        #   from their position; sorted by (arrival estimate, natural id)
@@ -539,7 +539,7 @@ loop:
     pending = [i for i in known if i.id not in assigned]
     free    = [r for r in state if state[r].free_at <= t + EPS]
     if pending and free:
-        p = build_problem(t, pending, state, ...)                        # asserts timestamps <= t
+        p = build_problem(t, pending, state, ...)                        # raises ValueError unless timestamps <= t
         mapping = planner(p)
         for r in free (natural order):
             queue = [i for i in mapping if mapping[i] == r] sorted by order_key
@@ -777,7 +777,7 @@ Timeline reconstruction per responder r: `pos = start_location`, `free = time_un
 * L2: the validator uses the same `roadnet` edge model (and therefore the same Bayes/HMM results) as the planner; an error in the posterior or the filter is not detected by the validator. Kernel correctness is covered by the numeric unit tests (§8), not by the validator.
 * L3: removed roads are judged with the same τ as the run; a road with P(Blocked) just below τ is treated as passable.
 * L4: E501 checks only reachability from final positions, not whether the planner could have served the incident earlier; optimality of allocation is not validated (W302 only checks route optimality).
-* L5: the validator cannot detect use of future knowledge beyond E402 (a decision taken at time t that depends on an incident with timestamp > t but departs later is invisible in plan.json). This is enforced in the simulator by an assertion and tested (T-SIM-3).
+* L5: the validator cannot detect use of future knowledge beyond E402 (a decision taken at time t that depends on an incident with timestamp > t but departs later is invisible in plan.json). This is enforced in the simulator by an explicit check in `allocation.build_problem` (raises `ValueError`; not an `assert`, so it also holds under `python -O`) and tested (T-SIM-3).
 
 ---
 

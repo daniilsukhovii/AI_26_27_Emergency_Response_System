@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import math
+import os
+import subprocess
+import sys
+import textwrap
 
 import pytest
 
@@ -12,7 +16,7 @@ from erp.greedy import greedy_assignment, greedy_planner
 from erp.io_load import load_scenario
 from erp.model import ResponderState
 from tests.fixtures import (
-    hand_network, inc, incident, matrix_problem, matrix_travel, node, reference_router, responder,
+    REPO, hand_network, inc, incident, matrix_problem, matrix_travel, node, reference_router, responder,
     snap, t_c1_problem, two_way, write_scenario,
 )
 
@@ -61,8 +65,30 @@ def test_build_problem(line):
 
 def test_build_problem_rejects_future_incidents(line):
     s, net, router = line
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError, match="future knowledge"):
         build_problem(4.0, [s.incident("I3")], _states(s), s, router, Config())
+
+
+def test_AUD8_future_knowledge_guard_survives_python_O():
+    """AUD-8: the 'no future knowledge' guard of build_problem is an explicit check, not an
+    assert, so under `python -O` an incident with timestamp 4 is still rejected at now = 0."""
+    code = textwrap.dedent("""
+        from erp.allocation import build_problem
+        from erp.config import Config
+        from erp.model import Incident, ResponderState
+        from erp.routing import RouteCache
+        class S:  # minimal scenario stand-in: build_problem only reads s.responders
+            responders = {}
+        inc = Incident("I1", "A", "High", 10.0, "X", 4.0, 0.0)
+        try:
+            build_problem(0.0, [inc], {}, S(), RouteCache(None), Config())
+        except ValueError:
+            raise SystemExit(0)
+        raise SystemExit(3)
+    """)
+    proc = subprocess.run([sys.executable, "-O", "-c", code], cwd=REPO, capture_output=True, text=True,
+                          env=dict(os.environ, PYTHONPATH=str(REPO)), timeout=60)
+    assert proc.returncode == 0, "future incident accepted under python -O (guard is an assert)"
 
 
 # ------------------------------------------------------------------ simulate_schedule

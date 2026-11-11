@@ -43,10 +43,12 @@ def build_problem(now: float, pending: Sequence[Incident],
                   states: Mapping[str, ResponderState], s: Scenario,
                   router: RouteCache, cfg: Config) -> AllocationProblem:
     """Snapshot of the current decision point. Every pending incident must already be known
-    (timestamp <= now) — enforced by an assertion [C]."""
+    (timestamp <= now, exact) [C]; otherwise raises ValueError. An explicit check, not an
+    ``assert``, so the guard also holds under ``python -O``."""
     for inc in pending:
-        assert inc.timestamp <= now, \
-            f"future knowledge: incident {inc.id} has timestamp {inc.timestamp} > now {now}"
+        if not inc.timestamp <= now:
+            raise ValueError(f"future knowledge: incident {inc.id} has timestamp {inc.timestamp} "
+                             f"> now {now}")
     incidents = tuple(sorted(pending, key=order_key))
     responders = tuple(
         ResponderSnapshot(id=rid, capabilities=s.responders[rid].capabilities,
