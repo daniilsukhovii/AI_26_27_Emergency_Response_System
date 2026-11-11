@@ -36,9 +36,15 @@ def road_status_posterior(cpts: RoadCPTs, weather: Weather,
         posterior[s] = p
 
     total = sum(posterior.values())
-    if total > 0:
-        for s in posterior:
-            posterior[s] /= total
+
+    if total == 0:
+        raise ValueError(
+            "Impossible evidence: normalization constant Z = 0. "
+            "No road status is compatible with the given weather and reports."
+        )
+
+    for s in posterior:
+        posterior[s] /= total
     return posterior
 
 

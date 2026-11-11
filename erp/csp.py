@@ -14,7 +14,7 @@ from typing import Mapping, Sequence, Any
 from erp.allocation import schedule_cost, simulate_schedule
 from erp.config import Config
 from erp.greedy import greedy_assignment
-from erp.model import AllocationProblem, AllocationResult, CostTuple, Planner, priority_rank, order_key
+from erp.model import AllocationProblem, AllocationResult, CostTuple, Planner, order_key, natural_key
 
 __all__ = ["AllocationResult", "select_unassigned_variable", "forward_check", "solve_allocation",
            "csp_planner", "CSPPlanner"]
@@ -112,12 +112,15 @@ def solve_allocation(p: AllocationProblem, node_limit: int,
     truncated = False # True = node_limit triggered
 
     if incumbent is not None:
-        if all(r in domains0[Y] for Y, r in incumbent.items()):
-            if simulate_schedule(p, incumbent) is not None:
-                best_assignment = incumbent.copy()
-                best_cost = schedule_cost(p, incumbent)
+        if (
+                set(incumbent.keys()) == set(variables)
+                and all(r in domains0[Y] for Y, r in incumbent.items())
+                and simulate_schedule(p, incumbent) is not None
+        ):
+            best_assignment = incumbent.copy()
+            best_cost = schedule_cost(p, incumbent)
 
-    root = forward_check(p, domains0, {}, best_cost)
+    root : dict[str, tuple[str, ...]] | None = forward_check(p, domains0, {}, best_cost)
     if root is None:
         # there is nothing better than the incumbent (or there is no complete solution at all)
         return AllocationResult(
@@ -127,7 +130,7 @@ def solve_allocation(p: AllocationProblem, node_limit: int,
             optimal         =True
         )
 
-    def search(assignment, domains):
+    def search(assignment :  dict[str, str], domains: dict[str, tuple[str, ...]]):
         nonlocal nodes
         nonlocal truncated
         nonlocal variables
@@ -151,12 +154,17 @@ def solve_allocation(p: AllocationProblem, node_limit: int,
 
         # Ordering of values: by increasing cost of the partial schedule,
         # ties ==> by the ID of the person responsible (line comparison)
-        scored = []
-        for r in domains[y]:
-            temp = dict(assignment) | {y: r}
-            c = schedule_cost(p, temp)
-            scored.append((c, r))
-        scored.sort()
+        scored: list[tuple[CostTuple, str]] = []
+        for responder in domains[y]:
+            temp = dict(assignment) | {y: responder}
+            cost: CostTuple | None  = schedule_cost(p, temp)
+            if cost is None:
+                continue
+            scored.append((cost, responder))
+
+        scored.sort(key=lambda item: (item[0], natural_key(item[1])))
+
+
 
         for c, r in scored:
 

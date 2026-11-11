@@ -27,6 +27,12 @@ def forward_filter(params: HMMParams, observations: Sequence[Level],
     """Normalised forward messages α_1..α_T (§6.4). Returns one distribution per observation;
     the last one is the filtered state [D 8]. Raises ValueError on an empty sequence."""
 
+    if convention not in ("pi_is_t1", "pi_is_t0"):
+        raise ValueError(
+            f"Unknown convention: {convention!r}. "
+            "Expected 'pi_is_t1' or 'pi_is_t0'."
+        )
+
     if len(observations) == 0:
         raise ValueError("observations must be non-empty")
 
