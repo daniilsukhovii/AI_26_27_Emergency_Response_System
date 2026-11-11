@@ -53,11 +53,11 @@ python -m pytest                # all tests
 python -m pytest tests/test_stats.py -q
 ```
 
-Tests that call a student kernel (`erp/bayes.py`, `erp/hmm.py`, `erp/search.py`, `erp/csp.py`,
-functions marked `# STUDENT:`) or the validator (`erp/validate.py`, written separately) fail
-with `NotImplementedError` until those functions are implemented. Reference implementations
-used only by tests (Dijkstra, brute-force HMM, exhaustive CSP) live in `tests/reference.py`
-and are never imported by `erp/`.
+Some tests call the student kernels (`erp/bayes.py`, `erp/hmm.py`, `erp/search.py`,
+`erp/csp.py`, functions marked `# STUDENT:`), others inject hand-made beliefs and reference
+routers so that the infrastructure is tested on its own. Reference implementations used only
+by tests (Dijkstra, brute-force HMM, exhaustive CSP) live in `tests/reference.py` and are never
+imported by `erp/`.
 
 ## Layout
 
@@ -75,7 +75,7 @@ erp/allocation.py          allocation problem, schedule, lexicographic cost
 erp/csp.py                 CSP allocation                        (student kernels + planner wrapper)
 erp/greedy.py              greedy baseline / CSP incumbent
 erp/simulate.py            event-driven rolling-horizon simulation
-erp/validate.py            plan validator                        (separate session)
+erp/validate.py            plan validator                        (independent of the planner)
 erp/stats.py, output.py    statistics and writers
 experiments/sensitivity.py sensitivity analysis
 tests/                     SPEC §8 tests, fixtures, reference implementations

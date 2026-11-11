@@ -159,8 +159,12 @@ def test_T_C7_node_limit_returns_incumbent():
 
 def test_T_C8_cost_monotone_under_extension():
     """Infra: adding one variable to a feasible partial assignment never decreases
-    schedule_cost lexicographically (valid lower bound for B&B). Feasibility itself is not
-    monotone (an inserted job can make a later leg reachable), so only feasible pairs count."""
+    schedule_cost lexicographically (valid lower bound for B&B). Only pairs where both
+    schedules are feasible count (schedule_cost is None otherwise). Feasibility is monotone too:
+    travel times are shortest-path costs, so reachability is transitive and inserting a job
+    between two legs can never make an unreachable leg reachable — an infeasible partial
+    assignment stays infeasible under every extension, which is why forward checking may prune
+    infeasible values."""
     rng = random.Random(88)
     checked = 0
     for seed in range(N_RANDOM):

@@ -1,6 +1,8 @@
 """Statistics (SPEC §5.13, formulas §6.8, [D 9], [D 10]).
 
-Computed from the validator timeline only (never from simulator internals):
+Computed from the validator timeline (never from simulator internals), except the reasons of
+unhandled incidents, which come from ``SimulationResult.unhandled`` (plan.json does not record
+why an incident was not dispatched):
 response time = arrival - incident timestamp (s); % deadlines met is over ALL incidents
 (unhandled = missed). Dependency rule (§3.2): no import of simulate / csp / greedy / search.
 """

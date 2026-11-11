@@ -1,6 +1,6 @@
 # SPEC — Emergency Response Decision-Support System
 
-Status: draft for review (nothing implemented yet).
+Status: binding specification of the implemented system (see `README.md`; design decisions in `DECISIONS.md`).
 Sources used: `Assignment1.pdf`, `Scenarios/README.md`, `Scenarios/Scenario1-3/*`,
 `ASSUMPTIONS.md`, `CLAUDE.md`. Nothing else is normative. Where this spec cites a
 rule it names the source: **[A §x]** = assignment section, **[S-README]** =
@@ -25,7 +25,7 @@ provisional and must be confirmed by the student).
 | Python | ≥ 3.11; stdlib + numpy + pytest only | [C] |
 | Hard-coded values | no scenario-specific values (node ids, speeds, counts) in code; model parameters live in `Config` | [C] |
 | Future knowledge | no component may read an incident whose `timestamp` > current simulation time. An incident is known at time t iff `timestamp ≤ t`, compared **exactly** (no EPS); the same exact comparison is used by E402 | [C], [A §3.2] |
-| Student functions | functions marked `# STUDENT:` are stubs only (signature, type hints, docstring, `raise NotImplementedError`). The coding agent never writes their bodies, even if tests fail, and never weakens tests | [C] |
+| Student functions | functions marked `# STUDENT:` are implemented by the student. The coding agent may write their tests, docstrings and type hints, but never writes or changes their bodies, even if tests fail, and never weakens tests | [C] |
 | Determinism | identical inputs + config ⇒ byte-identical outputs. All ties are broken by **natural id order** (`"I2" < "I10"`, key = `(alpha prefix, int suffix)`) | ENG, [T 3] |
 | Float comparisons | `a ≤ b` is evaluated as `a ≤ b + EPS` with `EPS = 1e-9` s (deadlines, availability / `free_at`); never for incident timestamps (see Future knowledge) | ENG |
 
