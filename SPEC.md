@@ -172,7 +172,7 @@ load_scenario ─► compute_road_beliefs (bayes.road_status_posterior / prior)
               ─► validate(plan) ─► Timeline ─► compute_statistics ─► write outputs
 ```
 
-Dependency rule (ENG): `validate.py` and `stats.py` never import `simulate`, `csp`, `greedy`, `search`. They re-derive timelines from `plan + scenario + network` only, so the validator is an independent check of the planner. They do share `roadnet` (edge weights) — see limitation L2.
+Dependency rule (ENG): `validate.py` and `stats.py` never import `simulate`, `csp`, `greedy`, `search`, `routing`, `allocation`. They re-derive timelines from `plan + scenario + network` only, so the validator is an independent check of the planner. They do share `roadnet` (edge weights) — see limitation L2.
 
 Injection rule (ENG): `simulate` takes `router` and `planner` as parameters and `build_network` accepts precomputed beliefs, so infrastructure tests can run before the student kernels exist (tests inject the validator's Dijkstra / hand-made beliefs; the production path in `run.py` always uses the student kernels).
 

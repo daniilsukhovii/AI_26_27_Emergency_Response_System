@@ -132,7 +132,7 @@ def _imports(path: Path) -> set[str]:
 
 @pytest.mark.parametrize("module", ["validate.py", "stats.py"])
 def test_dependency_rule_validator_and_stats(module):
-    forbidden = {"erp.simulate", "erp.csp", "erp.greedy", "erp.search"}
+    forbidden = {"erp.simulate", "erp.csp", "erp.greedy", "erp.search", "erp.routing", "erp.allocation"}
     assert not (_imports(REPO / "erp" / module) & forbidden)
 
 

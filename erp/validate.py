@@ -3,8 +3,8 @@
 Independent check of the planner: every responder timeline is rebuilt only from
 ``plan + scenario + network`` (§7, rules of §6.7). The module shares the edge model of
 ``erp.roadnet`` with the planner (limitation L2) but never imports simulate, csp, greedy,
-search or routing (dependency rule, SPEC §3.2); shortest paths come from the module's own
-``dijkstra_all``.
+search, routing or allocation (dependency rule, SPEC §3.2); shortest paths come from the
+module's own ``dijkstra_all``.
 
 Malformed plan.json (choice for SPEC §5.12 / E101): ``load_plan_json`` never raises on a
 bad file. If the file cannot be read or is not valid JSON it returns a ``PlanLoadError``
